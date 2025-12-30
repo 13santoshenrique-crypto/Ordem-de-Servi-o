@@ -1,0 +1,9 @@
+{
+  "name": "SGI-Aviagen - Inteligência Industrial",
+  "description": "Plataforma global de gestão de ativos, manutenção preditiva e governança multitenancy para a Aviagen.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
