@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  DollarSign, Calendar, Plus, History, Scale, TrendingUp, AlertCircle, FileText, CheckCircle2
+  DollarSign, Calendar, Plus, History, Scale, TrendingUp, AlertCircle, CheckCircle2, ReceiptText
 } from 'lucide-react';
 import { MonthlyExpense, Unit, ServiceOrder } from '../types';
 
@@ -25,7 +25,6 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  // Calcula o custo sistêmico (SGI) para o mês/ano selecionado
   const systemicCost = useMemo(() => {
     return orders
       .filter(o => {
@@ -46,40 +45,45 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
   const accuracy = formData.totalRealCost > 0 ? (systemicCost / formData.totalRealCost) * 100 : 0;
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+      <header className="flex items-center gap-6">
+        <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center text-white shadow-xl shimmer">
+          <Scale size={32} />
+        </div>
         <div>
-          <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Controle <span className="text-[#0047ba]">Financeiro</span> Real</h2>
-          <p className="text-white/40 text-xs font-black uppercase tracking-[0.4em] mt-2">Conciliação de Notas Fiscais vs Dados Sistêmicos SGI</p>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic">Conciliação <span className="text-blue-700">Financeira</span></h2>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em]">Auditoria de Notas Fiscais vs Dados SGI</p>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        <div className="lg:col-span-1 glass-card p-10 rounded-[3.5rem] border border-white/5 space-y-8 h-fit shadow-2xl">
-           <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-[#0047ba] rounded-2xl flex items-center justify-center text-white">
-                 <Plus size={24} />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        {/* Formulário de Gasto */}
+        <div className="lg:col-span-4 crystal-card p-10">
+           <div className="flex items-center gap-4 mb-10">
+              <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center">
+                 <ReceiptText size={24} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Entrada de Gasto Real</h3>
+              <h3 className="text-xl font-extrabold text-slate-900 uppercase tracking-tight">Entrada de Gasto</h3>
            </div>
 
-           <form onSubmit={handleSubmit} className="space-y-6">
+           <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Mês de Referência</label>
+                    <label className="industrial-label">Mês Fiscal</label>
                     <select 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-[#0047ba] appearance-none cursor-pointer text-xs font-bold"
+                      className="industrial-input !py-4 appearance-none"
                       value={formData.month}
                       onChange={(e) => setFormData({...formData, month: Number(e.target.value)})}
                     >
-                      {months.map((m, i) => <option key={i} value={i} className="bg-slate-900">{m}</option>)}
+                      {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
                     </select>
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Ano</label>
+                    <label className="industrial-label">Ano</label>
                     <input 
                       type="number" 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-[#0047ba] text-xs font-bold"
+                      className="industrial-input !py-4"
                       value={formData.year}
                       onChange={(e) => setFormData({...formData, year: Number(e.target.value)})}
                     />
@@ -87,13 +91,13 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
               </div>
 
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Valor Total Real (Soma de Notas)</label>
+                 <label className="industrial-label">Valor Total Informado (R$)</label>
                  <div className="relative">
-                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-[#0047ba] font-black">{unit.currency}</div>
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-700 font-black text-xl">R$</div>
                     <input 
                       type="number" 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 pl-20 pr-8 text-white focus:outline-none focus:border-[#0047ba] font-black text-2xl"
-                      placeholder="0.00"
+                      className="industrial-input pl-16 text-3xl font-black"
+                      placeholder="0,00"
                       value={formData.totalRealCost}
                       onChange={(e) => setFormData({...formData, totalRealCost: Number(e.target.value)})}
                     />
@@ -101,97 +105,92 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
               </div>
 
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Observações (Opcional)</label>
+                 <label className="industrial-label">Notas do Fechamento</label>
                  <textarea 
-                   className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white text-xs focus:border-[#0047ba] outline-none resize-none"
+                   className="industrial-input !px-6 !py-4 resize-none text-sm font-medium"
                    rows={3}
-                   placeholder="Detalhamento do fechamento..."
+                   placeholder="Observações complementares..."
                    value={formData.notes}
                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
                  />
               </div>
 
-              <button type="submit" className="w-full py-6 bg-[#0047ba] hover:bg-[#e31b23] text-white font-black uppercase text-xs tracking-widest rounded-3xl shadow-2xl transition-all">
-                 Registrar Fechamento Mensal
+              <button type="submit" className="w-full btn-primary">
+                 Registrar Auditoria
               </button>
            </form>
         </div>
 
-        <div className="lg:col-span-2 space-y-8">
-           <div className="glass p-10 rounded-[3.5rem] border border-white/5 bg-gradient-to-br from-[#0047ba]/5 to-transparent shadow-3xl">
-              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-10 flex items-center gap-3">
-                 <Scale size={24} className="text-[#e31b23]" />
-                 Auditoria de Fechamento: {months[formData.month]} {formData.year}
-              </h3>
+        {/* Dash de Auditoria */}
+        <div className="lg:col-span-8 space-y-10">
+           <div className="crystal-card p-12 bg-blue-50/40 border-blue-100">
+              <div className="flex justify-between items-center mb-12">
+                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                    <CheckCircle2 size={24} className="text-blue-700" />
+                    Status da Conciliação: {months[formData.month].toUpperCase()}
+                 </h3>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
-                 <div className="space-y-4">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/30 tracking-widest">
-                       <span>Registrado no SGI (OS)</span>
-                       <span className="text-[#0047ba]">{unit.currency} {systemicCost.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/30 tracking-widest">
-                       <span>Valor Informado Real</span>
-                       <span className="text-white">{unit.currency} {formData.totalRealCost.toLocaleString()}</span>
-                    </div>
-                    <div className="pt-4 border-t border-white/5 flex justify-between items-end">
-                       <div>
-                          <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Diferença de Caixa</p>
-                          <p className={`text-3xl font-black tracking-tighter ${diff > 0 ? 'text-[#e31b23]' : 'text-emerald-400'}`}>
-                             {unit.currency} {Math.abs(diff).toLocaleString()}
-                          </p>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Acuracidade SGI</p>
-                          <p className="text-3xl font-black text-white tracking-tighter">{accuracy.toFixed(1)}%</p>
-                       </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                 <div className="space-y-2">
+                    <p className="industrial-label !text-slate-400">Registrado no SGI (OS)</p>
+                    <p className="text-4xl font-black text-slate-400 tracking-tighter italic">R$ {systemicCost.toLocaleString()}</p>
                  </div>
+                 <div className="space-y-2">
+                    <p className="industrial-label">Valor Informado Real</p>
+                    <p className="text-4xl font-black text-slate-900 tracking-tighter italic">R$ {formData.totalRealCost.toLocaleString()}</p>
+                 </div>
+                 <div className="space-y-2">
+                    <p className="industrial-label">Acuracidade SGI</p>
+                    <p className={`text-4xl font-black tracking-tighter italic ${accuracy >= 95 ? 'text-emerald-500' : 'text-amber-500'}`}>{accuracy.toFixed(1)}%</p>
+                 </div>
+              </div>
 
-                 <div className="flex flex-col justify-center gap-6">
-                    <div className={`p-6 rounded-3xl border ${diff > 0 ? 'bg-[#e31b23]/5 border-[#e31b23]/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
-                       <div className="flex items-center gap-4">
-                          {diff > 0 ? <AlertCircle size={24} className="text-[#e31b23]" /> : <CheckCircle2 size={24} className="text-emerald-400" />}
-                          <p className="text-xs font-bold text-white/70 leading-relaxed italic">
-                             {diff > 0 
-                               ? `Existem R$ ${diff.toLocaleString()} gastos não reportados via Ordem de Serviço. Verifique desvios ou compras emergenciais.` 
-                               : "Os custos registrados no sistema cobrem integralmente o gasto real. Excelente governança."}
-                          </p>
-                       </div>
-                    </div>
+              <div className={`mt-12 p-8 rounded-[2rem] border-2 flex items-center gap-6 ${diff > 0 ? 'bg-rose-50 border-rose-200 text-rose-800 shadow-xl shadow-rose-200/20' : 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-xl shadow-emerald-200/20'}`}>
+                 <div className={`p-4 rounded-2xl ${diff > 0 ? 'bg-rose-200' : 'bg-emerald-200'}`}>
+                    {diff > 0 ? <AlertCircle size={28}/> : <CheckCircle2 size={28}/>}
+                 </div>
+                 <div>
+                    <p className="text-lg font-black uppercase tracking-tight">
+                       Diferença de Caixa: R$ {Math.abs(diff).toLocaleString()}
+                    </p>
+                    <p className="text-sm font-bold opacity-80 mt-1">
+                       {diff > 0 
+                          ? "Atenção: Existem gastos externos não lançados como Ordens de Serviço no sistema." 
+                          : "Excelente governança. Todos os gastos reais estão cobertos por ordens sistêmicas."}
+                    </p>
                  </div>
               </div>
            </div>
 
-           <div className="glass rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
-              <div className="p-8 border-b border-white/5 bg-white/2 flex items-center justify-between">
-                 <h3 className="font-black text-lg uppercase tracking-tight flex items-center gap-3">
-                    <History size={20} className="text-[#0047ba]" />
-                    Histórico de Fechamentos
+           {/* Histórico */}
+           <div className="crystal-card overflow-hidden">
+              <div className="p-8 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                 <h3 className="font-black text-slate-900 uppercase text-sm tracking-widest flex items-center gap-3">
+                    <History size={20} className="text-blue-700" /> Histórico de Fechamentos
                  </h3>
               </div>
-              <div className="p-0">
+              <div className="overflow-x-auto">
                  <table className="w-full text-left">
                     <thead>
-                       <tr className="border-b border-white/5">
-                          <th className="px-8 py-5 text-[9px] font-black text-white/20 uppercase tracking-widest">Mês/Ano</th>
-                          <th className="px-8 py-5 text-[9px] font-black text-white/20 uppercase tracking-widest">Valor Real</th>
-                          <th className="px-8 py-5 text-[9px] font-black text-white/20 uppercase tracking-widest">Status Auditoria</th>
+                       <tr className="bg-slate-50/50">
+                          <th className="px-10 py-5 industrial-label">Período</th>
+                          <th className="px-10 py-5 industrial-label">Valor Real</th>
+                          <th className="px-10 py-5 industrial-label">Status Auditoria</th>
                        </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-slate-100">
                        {expenses.length === 0 ? (
-                         <tr><td colSpan={3} className="px-8 py-10 text-center text-white/20 font-black text-[10px] uppercase">Nenhum fechamento registrado</td></tr>
+                         <tr><td colSpan={3} className="px-10 py-16 text-center text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum fechamento registrado</td></tr>
                        ) : (
-                         expenses.sort((a,b) => b.year - a.year || b.month - a.month).map(exp => (
-                           <tr key={exp.id} className="hover:bg-white/2 transition-colors">
-                              <td className="px-8 py-6 text-sm font-black text-white">{months[exp.month]} {exp.year}</td>
-                              <td className="px-8 py-6 text-sm font-black text-[#0047ba]">{unit.currency} {exp.totalRealCost.toLocaleString()}</td>
-                              <td className="px-8 py-6">
-                                 <span className="px-4 py-1.5 bg-white/5 rounded-full text-[9px] font-black uppercase text-white/30 tracking-widest border border-white/5 flex items-center gap-2 w-fit">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                                    Validado IA
-                                 </span>
+                         expenses.map(exp => (
+                           <tr key={exp.id} className="hover:bg-blue-50/30 transition-colors">
+                              <td className="px-10 py-6 text-sm font-black text-slate-900 uppercase">{months[exp.month]} {exp.year}</td>
+                              <td className="px-10 py-6 text-lg font-black text-blue-700 italic">R$ {exp.totalRealCost.toLocaleString()}</td>
+                              <td className="px-10 py-6">
+                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-100 w-fit">
+                                    <CheckCircle2 size={14}/> Conciliado
+                                 </div>
                               </td>
                            </tr>
                          ))

@@ -2,10 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Cpu, Package, DollarSign,
-  LogOut, Drill, Settings, Bell, ShieldCheck, FileBarChart, Menu, X, Server, Calendar, Building2, ChevronDown, Search, Headphones, Clock, AlertTriangle, CheckCircle2, Info, AlertCircle, ListTodo
+  LogOut, Drill, Settings, Bell, ShieldCheck, FileBarChart, Menu, X, Server, Calendar, Building2, ChevronDown, Search, Headphones, Check, Clock, AlertTriangle, AlertCircle, Info
 } from 'lucide-react';
-import { UserRole } from '../types';
-import { useApp } from '../context/AppContext';
+import { UserRole } from './types';
+import { useApp } from './context/AppContext';
 
 const HeaderNav: React.FC<any> = ({ 
   activeTab, setActiveTab, role, userName, onLogout, onOpenSearch
@@ -20,7 +20,6 @@ const HeaderNav: React.FC<any> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
     { id: 'schedule', label: 'Cronograma', icon: Calendar, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
     { id: 'history', label: 'Ordens (OS)', icon: Drill, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
-    { id: 'plans', label: 'Plano 5W2H', icon: ListTodo, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
     { id: 'tst', label: 'TST Compliance', icon: ShieldCheck, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
     { id: 'support', label: 'Suporte Live', icon: Headphones, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
     { id: 'assets', label: 'Ativos', icon: Server, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
@@ -53,7 +52,7 @@ const HeaderNav: React.FC<any> = ({
     switch (type) {
         case 'critical': return <AlertCircle className="text-red-500" size={16} />;
         case 'warning': return <AlertTriangle className="text-amber-500" size={16} />;
-        case 'success': return <CheckCircle2 className="text-emerald-500" size={16} />;
+        case 'success': return <Check className="text-emerald-500" size={16} />;
         default: return <Info className="text-blue-500" size={16} />;
     }
   };
@@ -148,42 +147,42 @@ const HeaderNav: React.FC<any> = ({
           >
              <Bell size={20} />
              {unreadCount > 0 && (
-               <span className="absolute top-1 right-1 w-5 h-5 bg-[#E31B23] text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white animate-bounce shadow-lg">
+               <span className="absolute top-1 right-1 w-4 h-4 bg-[#E31B23] text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white animate-in zoom-in">
                  {unreadCount > 9 ? '+9' : unreadCount}
                </span>
              )}
           </button>
 
           {showNotifications && (
-            <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+            <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-top-2 duration-300">
                <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Central de Notificações</h3>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Notificações SGI</h3>
                   {unreadCount > 0 && (
-                    <button onClick={markAllAsRead} className="text-[9px] font-black text-[#1A3673] uppercase hover:underline">Limpar Tudo</button>
+                    <button onClick={markAllAsRead} className="text-[9px] font-black text-[#1A3673] uppercase tracking-widest hover:text-blue-700">Lidas</button>
                   )}
                </div>
-               <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+               <div className="max-h-96 overflow-y-auto custom-scrollbar">
                   {notifications.length === 0 ? (
-                    <div className="p-12 text-center opacity-30">
-                       <Bell size={40} className="mx-auto text-slate-300 mb-2" />
-                       <p className="text-[10px] font-bold uppercase tracking-widest">Sem Alertas</p>
+                    <div className="p-10 text-center space-y-3 opacity-30">
+                       <Bell size={32} className="mx-auto text-slate-400" />
+                       <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma atividade</p>
                     </div>
                   ) : (
                     notifications.map(n => (
                       <div 
                         key={n.id} 
                         onClick={() => markAsRead(n.id)}
-                        className={`p-5 border-b border-slate-50 last:border-none cursor-pointer transition-colors relative group ${!n.read ? 'bg-blue-50/20' : 'hover:bg-slate-50'}`}
+                        className={`p-5 border-b border-slate-50 last:border-none cursor-pointer transition-all hover:bg-slate-50 relative ${!n.read ? 'bg-blue-50/20' : ''}`}
                       >
                          {!n.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1A3673]"></div>}
                          <div className="flex gap-4">
                             <div className="mt-1">{getNotifIcon(n.type)}</div>
                             <div className="flex-1">
-                               <p className="text-xs font-black text-slate-900 leading-tight mb-1 uppercase italic">{n.title}</p>
-                               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{n.message}</p>
+                               <p className="text-xs font-black text-slate-900 uppercase leading-none mb-1">{n.title}</p>
+                               <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{n.message}</p>
                                <div className="flex items-center gap-1.5 mt-2 text-slate-300">
                                   <Clock size={10} />
-                                  <span className="text-[9px] font-bold uppercase">{n.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span className="text-[8px] font-bold uppercase">{n.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                </div>
                             </div>
                          </div>
@@ -192,8 +191,8 @@ const HeaderNav: React.FC<any> = ({
                   )}
                </div>
                {notifications.length > 0 && (
-                 <div className="p-3 bg-slate-50/80 text-center border-t border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">Monitoramento em Tempo Real SGI</p>
+                 <div className="p-3 bg-slate-50/80 text-center">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Monitoramento Aviagen em Tempo Real</p>
                  </div>
                )}
             </div>
@@ -217,6 +216,12 @@ const HeaderNav: React.FC<any> = ({
 
       {isMobileMenuOpen && (
         <div className="absolute top-16 left-0 w-full bg-white border-b border-slate-200 shadow-xl lg:hidden flex flex-col p-4 gap-2 animate-in slide-in-from-top-2 z-[999]">
+           <div className="p-4 bg-slate-50 rounded-xl mb-2 flex justify-between items-center">
+              <div>
+                 <p className="text-[9px] font-black text-slate-400 uppercase">Unidade</p>
+                 <p className="text-xs font-black text-[#1A3673] uppercase">{currentUnit?.name}</p>
+              </div>
+           </div>
            {menuItems.map((item) => {
               if (!item.roles.includes(role)) return null;
               const isActive = activeTab === item.id;

@@ -1,224 +1,213 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { ServiceOrder, User, Unit, UserRole, CloudSyncState, MonthlyExpense, ThemeType, InventoryItem, OSStatus, ServiceType } from './types';
-import { INITIAL_OS, INITIAL_USERS, INITIAL_UNITS, INITIAL_INVENTORY } from './constants';
+import React, { useState, useEffect, useCallback } from 'react';
+import { User, ServiceOrder, Unit, UserRole } from './types';
+import { AppProvider, useApp } from './context/AppContext';
 import HeaderNav from './components/HeaderNav';
 import Dashboard from './components/Dashboard';
 import OSHistory from './components/OSHistory';
 import IAModule from './components/IAModule';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
-import Benchmarking from './components/Benchmarking';
 import BoardReports from './components/BoardReports';
 import Inventory from './components/Inventory';
-import StrategicPlanning from './components/StrategicPlanning';
 import FinancialControl from './components/FinancialControl';
+import AssetsRegistry from './components/AssetsRegistry';
+import MaintenanceSchedule from './components/MaintenanceSchedule'; 
+import TSTAudit from './components/TSTAudit';
+import FiveWTwoH from './components/FiveWTwoH';
+import CommandPalette from './components/CommandPalette';
+import ComplianceAlert from './components/ComplianceAlert';
+import LiveSupport from './components/LiveSupport';
+import ErrorBoundary from './components/ErrorBoundary';
+import { db } from './services/database';
+import { Globe, ShieldCheck } from 'lucide-react';
 
-const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+const MainApp: React.FC = () => {
+  const { 
+    orders, setOrders, users, setUsers, inventory, setInventory, 
+    expenses, setExpenses, units, setUnits, assets, setAssets, 
+    recurringTasks, setRecurringTasks, tstAudit, setTstAudit,
+    actionPlans, setActionPlans,
+    addNotification, loading, logAction, currentUser, setCurrentUser,
+    activeUnitId, setActiveUnitId
+  } = useApp();
+
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [currentUnitId, setCurrentUnitId] = useState('');
-  const [theme, setTheme] = useState<ThemeType>((localStorage.getItem('aviagen_theme') as ThemeType) || 'deep');
-  
-  // Estado para OS pré-preenchida vinda da IA
   const [preFilledOSData, setPreFilledOSData] = useState<any>(null);
+  const [isSessionChecked, setIsSessionChecked] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const [orders, setOrders] = useState<ServiceOrder[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  const [syncState, setSyncState] = useState<CloudSyncState>({
-    plantKey: localStorage.getItem('aviagen_plant_key') || 'AVI-UNIT-01',
-    isSyncing: false,
-    lastSync: null,
-    status: 'online'
-  });
-
+  // Validação de Sessão Inicial
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('aviagen_theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    const loadData = () => {
+    const savedUser = localStorage.getItem('aviagen_session_user');
+    const savedUnit = localStorage.getItem('aviagen_active_unit');
+    if (savedUser) {
       try {
-        const savedOrders = localStorage.getItem('aviagen_orders');
-        const savedInv = localStorage.getItem('aviagen_inventory');
-        const savedUnits = localStorage.getItem('aviagen_units');
-        const savedUsers = localStorage.getItem('aviagen_users');
-        const savedExpenses = localStorage.getItem('aviagen_expenses');
-        
-        setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_OS);
-        setInventory(savedInv ? JSON.parse(savedInv) : INITIAL_INVENTORY);
-        setUnits(savedUnits ? JSON.parse(savedUnits) : INITIAL_UNITS);
-        setUsers(savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS);
-        setMonthlyExpenses(savedExpenses ? JSON.parse(savedExpenses) : []);
-        setIsLoaded(true);
-      } catch (error) {
-        setOrders(INITIAL_OS);
-        setInventory(INITIAL_INVENTORY);
-        setUnits(INITIAL_UNITS);
-        setUsers(INITIAL_USERS);
-        setIsLoaded(true);
+        const parsedUser = JSON.parse(savedUser);
+        setCurrentUser(parsedUser);
+        if (savedUnit) setActiveUnitId(savedUnit);
+        else if (parsedUser.unitId) setActiveUnitId(parsedUser.unitId);
+      } catch (e) { localStorage.removeItem('aviagen_session_user'); }
+    }
+    setIsSessionChecked(true);
+  }, [setCurrentUser, setActiveUnitId]);
+
+  // Validação de Integridade da Unidade Ativa
+  useEffect(() => {
+    if (!loading && units.length > 0 && activeUnitId) {
+      const isValidUnit = units.find(u => u.id === activeUnitId);
+      if (!isValidUnit) {
+        // Se a unidade salva não existe mais, reverte para a primeira disponível
+        const fallbackId = units[0].id;
+        setActiveUnitId(fallbackId);
+        localStorage.setItem('aviagen_active_unit', fallbackId);
+        console.warn(`Unidade ativa inválida detectada. Revertendo para ${fallbackId}`);
       }
-    };
-    loadData();
-  }, []);
+    }
+  }, [loading, units, activeUnitId, setActiveUnitId]);
 
+  // Auto-Save
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('aviagen_orders', JSON.stringify(orders));
-      localStorage.setItem('aviagen_inventory', JSON.stringify(inventory));
-      localStorage.setItem('aviagen_units', JSON.stringify(units));
-      localStorage.setItem('aviagen_users', JSON.stringify(users));
-      localStorage.setItem('aviagen_expenses', JSON.stringify(monthlyExpenses));
-      
-      setSyncState(prev => ({ ...prev, isSyncing: true }));
-      const timer = setTimeout(() => {
-        setSyncState(prev => ({ ...prev, isSyncing: false, lastSync: new Date() }));
-      }, 800);
-      return () => clearTimeout(timer);
+    if (!loading && isSessionChecked) {
+      db.saveOrders(orders);
+      db.saveInventory(inventory);
+      db.saveUsers(users);
+      db.saveExpenses(expenses);
+      db.saveAssets(assets);
+      db.saveUnits(units);
+      db.saveRecurringTasks(recurringTasks);
+      db.saveTSTAudit(tstAudit);
+      db.saveActionPlans(actionPlans);
     }
-  }, [orders, inventory, units, users, monthlyExpenses, isLoaded]);
+  }, [orders, inventory, users, expenses, assets, units, recurringTasks, tstAudit, actionPlans, loading, isSessionChecked]);
 
-  useEffect(() => {
-    if (currentUser) {
-      setCurrentUnitId(currentUser.unitId);
-    }
-  }, [currentUser]);
+  const activeUnit = units.find(u => u.id === activeUnitId) || units[0];
 
-  const unitContext = useMemo(() => {
-    const fallbackUnit = units[0] || INITIAL_UNITS[0];
-    const targetUnitId = currentUnitId || fallbackUnit.id;
-    
-    return {
-      orders: orders.filter(o => o.unitId === targetUnitId),
-      inventory: inventory.filter(i => i.unitId === targetUnitId),
-      technicians: users.filter(u => u.unitId === targetUnitId),
-      expenses: monthlyExpenses.filter(e => e.unitId === targetUnitId),
-      activeUnit: units.find(u => u.id === targetUnitId) || fallbackUnit
-    };
-  }, [orders, inventory, users, units, monthlyExpenses, currentUnitId]);
-
-  const handleUpdateOS = (osId: string, updates: Partial<ServiceOrder>, partsUsed?: any[]) => {
-    setOrders(prev => {
-      const newOrders = prev.map(o => o.id === osId ? { ...o, ...updates, lastUpdated: Date.now() } : o);
-      return [...newOrders];
-    });
-
-    if (partsUsed) {
-      setInventory(prev => prev.map(item => {
-        const used = partsUsed.find(p => p.itemId === item.id);
-        return used ? { ...item, stock: Math.max(0, item.stock - Number(used.quantity)) } : item;
-      }));
-    }
+  const handleLogin = (user: User, selectedUnitId: string) => {
+    localStorage.setItem('aviagen_session_user', JSON.stringify(user));
+    localStorage.setItem('aviagen_active_unit', selectedUnitId);
+    setCurrentUser(user);
+    setActiveUnitId(selectedUnitId);
+    logAction("LOGIN", `Acesso validado na unidade ${selectedUnitId}.`, user);
   };
 
-  const handleCreateFromAI = (data: any) => {
-    setPreFilledOSData({
-      description: `[AUTO-IA] EQUIPAMENTO: ${data.equipment}\nDIAGNÓSTICO: ${data.diagnosis}\nRECOMENDAÇÃO: ${data.suggestedAction}\nPEÇAS: ${data.requiredParts?.join(', ') || 'Não especificadas'}`,
-      type: data.suggestedAction?.toLowerCase().includes('preventiv') ? ServiceType.PREVENTIVE : ServiceType.CORRECTIVE,
-    });
-    setActiveTab('history');
+  const handleLogout = () => {
+    if (currentUser) logAction("LOGOUT", `Usuário encerrou sessão.`, currentUser);
+    localStorage.removeItem('aviagen_session_user');
+    localStorage.removeItem('aviagen_active_unit');
+    setCurrentUser(null);
   };
 
-  if (!isLoaded) return <div className="h-screen bg-[#020617] flex flex-col items-center justify-center gap-4"><div className="w-12 h-12 border-2 border-[#0047ba] border-t-white rounded-full animate-spin"></div></div>;
-
-  if (!currentUser) return <Login onLogin={setCurrentUser} />;
-
-  const hasAccess = (tab: string) => {
-    const role = currentUser.role;
-    if (role === UserRole.GLOBAL_ADMIN) return true;
-    if (role === UserRole.ADMIN || role === UserRole.BOARD_MEMBER) {
-      return ['dashboard', 'history', 'inventory', 'finance', 'strategic', 'ai', 'benchmarking', 'reports'].includes(tab);
+  const handleUpdateOrder = useCallback((id: string, updates: Partial<ServiceOrder>, partsUsed?: any[]) => {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    if (partsUsed && partsUsed.length > 0) {
+      setInventory(prevInv => {
+        const newInv = [...prevInv];
+        partsUsed.forEach(part => {
+          const itemIdx = newInv.findIndex(i => i.id === part.itemId);
+          if (itemIdx !== -1) {
+            const newStock = Math.max(0, newInv[itemIdx].stock - part.quantity);
+            newInv[itemIdx] = { ...newInv[itemIdx], stock: newStock };
+            if (newStock <= newInv[itemIdx].minStock) {
+              addNotification({ type: 'critical', title: 'Estoque Crítico', message: `Item: ${newInv[itemIdx].name}.` });
+            }
+          }
+        });
+        return newInv;
+      });
     }
-    if (role === UserRole.TECHNICIAN) {
-      return ['history', 'ai'].includes(tab);
-    }
-    return false;
+  }, [setOrders, setInventory, addNotification]);
+
+  const handleNavigate = (tab: string, data?: any) => {
+    setActiveTab(tab);
+    if (data) setPreFilledOSData(data);
+    setIsSearchOpen(false);
   };
+
+  if (loading || !isSessionChecked) return (
+    <div className="h-screen bg-slate-50 flex flex-col items-center justify-center gap-6">
+       <div className="w-16 h-16 bg-[#1A3673] rounded-2xl animate-bounce flex items-center justify-center text-white text-2xl font-black italic shadow-2xl">A</div>
+       <p className="font-black uppercase text-[10px] tracking-[0.5em] text-[#1A3673]">Iniciando SGI Aviagen...</p>
+    </div>
+  );
+
+  if (!currentUser) return <Login onLogin={handleLogin} users={users} />;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden text-[var(--text-main)] transition-colors duration-500">
-      <HeaderNav 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        role={currentUser.role} 
-        userName={currentUser.name}
-        unitName={unitContext.activeUnit.name}
-        syncState={syncState}
-        onLogout={() => setCurrentUser(null)}
-        units={units}
-        currentUnitId={currentUnitId}
-        setCurrentUnitId={setCurrentUnitId}
-        isGlobalAdmin={currentUser.role === UserRole.GLOBAL_ADMIN}
-        currentTheme={theme}
-        setTheme={setTheme}
-      />
+    <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 bg-[#F8FAFC]">
+      <ErrorBoundary>
+        <ComplianceAlert />
+        <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={handleNavigate} />
+        <HeaderNav 
+          activeTab={activeTab} setActiveTab={setActiveTab} role={currentUser.role} 
+          userName={currentUser.name} onLogout={handleLogout} onOpenSearch={() => setIsSearchOpen(true)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar">
+          <div className="max-w-[1600px] mx-auto min-h-full flex flex-col">
+            <div className="flex-1">
+                {activeTab === 'dashboard' && <Dashboard unit={activeUnit} currentUnitId={activeUnitId} role={currentUser.role} onRequestNewOS={() => setActiveTab('history')} />}
+                {activeTab === 'schedule' && <MaintenanceSchedule onGenerateOS={(data) => handleNavigate('history', data)} />}
+                {activeTab === 'history' && (
+                  <OSHistory 
+                    orders={orders} technicians={users} inventory={inventory} 
+                    onUpdate={handleUpdateOrder} 
+                    onAddOS={(d) => setOrders(prev => [{...d, unitId: activeUnitId, id: `OS-${activeUnitId}-${Date.now()}`}, ...prev])} 
+                    role={currentUser.role} currentUser={currentUser}
+                    preFilledData={preFilledOSData} clearPreFilled={() => setPreFilledOSData(null)}
+                  />
+                )}
+                {activeTab === 'tst' && <TSTAudit />}
+                {activeTab === 'plans' && <FiveWTwoH />}
+                {activeTab === 'support' && <LiveSupport />}
+                {activeTab === 'assets' && <AssetsRegistry assets={assets.filter(a => a.unitId === activeUnitId)} setAssets={setAssets} />}
+                {activeTab === 'inventory' && <Inventory inventory={inventory.filter(i => i.unitId === activeUnitId)} setInventory={setInventory} />}
+                {activeTab === 'finance' && <FinancialControl expenses={expenses.filter(e => e.unitId === activeUnitId)} onAddExpense={(d) => setExpenses(prev => [{ ...d, id: `exp-${Date.now()}` }, ...prev])} unit={activeUnit} orders={orders.filter(o => o.unitId === activeUnitId)} />}
+                {activeTab === 'reports' && <BoardReports orders={orders.filter(o => o.unitId === activeUnitId)} unit={activeUnit} units={units} />}
+                {activeTab === 'ai' && <IAModule orders={orders.filter(o => o.unitId === activeUnitId)} users={users} role={currentUser.role} onGenerateOS={(data) => handleNavigate('history', data)} />}
+                {activeTab === 'admin' && (
+                  <AdminPanel 
+                    users={users} units={units} 
+                    onAddUser={(d) => setUsers(prev => [{ ...d, id: `u-${Date.now()}` }, ...prev])} 
+                    onUpdateUser={(id, up) => setUsers(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} 
+                    onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} 
+                    onAddUnit={(d) => setUnits(prev => [...prev, {...d, id: `u-${Date.now()}`}])} 
+                    onUpdateUnit={(id, up) => setUnits(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} 
+                    onDeleteUnit={(id) => setUnits(prev => prev.filter(u => u.id !== id))} 
+                    currentUser={currentUser} 
+                  />
+                )}
+            </div>
 
-      <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[var(--bg-main)]">
-        <div className="max-w-[1700px] mx-auto pb-12">
-          {activeTab === 'dashboard' && hasAccess('dashboard') && (
-            <Dashboard 
-              orders={unitContext.orders} 
-              users={users} 
-              inventory={unitContext.inventory} 
-              expenses={unitContext.expenses} 
-              currentUnitId={currentUnitId} 
-              unit={unitContext.activeUnit} 
-              role={currentUser.role}
-            />
-          )}
-          {activeTab === 'history' && hasAccess('history') && (
-            <OSHistory 
-              orders={unitContext.orders} 
-              technicians={unitContext.technicians} 
-              inventory={unitContext.inventory} 
-              onUpdate={handleUpdateOS} 
-              onAddOS={(data) => {
-                setOrders(prev => [{...data, id: `OS-${Date.now()}`, unitId: currentUnitId, status: OSStatus.OPEN}, ...prev]);
-                setPreFilledOSData(null);
-              }}
-              role={currentUser.role}
-              currentUser={currentUser}
-              preFilledData={preFilledOSData}
-              clearPreFilled={() => setPreFilledOSData(null)}
-            />
-          )}
-          {activeTab === 'inventory' && hasAccess('inventory') && <Inventory inventory={unitContext.inventory} setInventory={setInventory} />}
-          {activeTab === 'finance' && hasAccess('finance') && <FinancialControl expenses={unitContext.expenses} onAddExpense={(e) => setMonthlyExpenses(prev => [...prev, {...e, id: `exp-${Date.now()}`}])} unit={unitContext.activeUnit} orders={unitContext.orders} />}
-          {activeTab === 'strategic' && hasAccess('strategic') && <StrategicPlanning orders={unitContext.orders} units={units} />}
-          {activeTab === 'ai' && hasAccess('ai') && <IAModule orders={unitContext.orders} users={unitContext.technicians} role={currentUser.role} onGenerateOS={handleCreateFromAI} />}
-          {activeTab === 'benchmarking' && hasAccess('benchmarking') && <Benchmarking units={units} orders={orders} currentUserUnitId={currentUnitId} />}
-          {activeTab === 'reports' && hasAccess('reports') && <BoardReports orders={unitContext.orders} unit={unitContext.activeUnit} />}
-          {activeTab === 'admin' && hasAccess('admin') && (
-            <AdminPanel 
-              users={users} 
-              units={units} 
-              onAddUser={(u) => setUsers(prev => [...prev, { ...u, id: `user-${Date.now()}` }])}
-              onUpdateUser={(id, up) => setUsers(prev => prev.map(u => u.id === id ? { ...u, ...up } : u))}
-              onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))}
-              onAddUnit={(u) => setUnits(prev => [...prev, u])}
-              onUpdateUnit={(id, up) => setUnits(prev => prev.map(u => u.id === id ? { ...u, ...up } : u))}
-              onDeleteUnit={(id) => setUnits(prev => prev.filter(u => u.id !== id))}
-              currentUser={currentUser}
-            />
-          )}
-        </div>
-      </main>
-
-      <footer className="h-8 glass border-t border-[var(--border-main)] flex items-center justify-between px-10 shrink-0 text-[8px] font-black uppercase tracking-[0.3em] opacity-40">
-        <div className="flex items-center gap-4">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-          SGI-Aviagen • {currentUser.role} • Nível de Acesso: {currentUser.role === UserRole.GLOBAL_ADMIN ? 'IRRESTRITO' : 'OPERACIONAL'}
-        </div>
-        <span>Platinum Core Inteligência • Emerson Henrique Control System</span>
-      </footer>
+            <footer className="mt-20 mb-10 pt-10 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6 opacity-60 hover:opacity-100 transition-opacity duration-300">
+               <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 rounded-lg text-slate-400">
+                     <Globe size={14} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Aviagen Global Governance • Ecosystem v2.7.2</p>
+               </div>
+               
+               <div className="flex items-center gap-4">
+                  <div className="h-4 w-px bg-slate-200 hidden md:block"></div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">
+                     Criado e desenvolvido por <span className="text-[#1A3673] italic font-black">Emerson Henrique 2026</span>
+                  </p>
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                     <ShieldCheck size={12} />
+                     <span className="text-[8px] font-black uppercase tracking-widest">Acesso Seguro</span>
+                  </div>
+               </div>
+            </footer>
+          </div>
+        </main>
+      </ErrorBoundary>
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <AppProvider>
+    <MainApp />
+  </AppProvider>
+);
 
 export default App;

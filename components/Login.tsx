@@ -1,120 +1,271 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
-  User as UserIcon, ChevronRight, Fingerprint, Activity, ShieldCheck, Globe
+  Mail, Lock, ArrowRight, AlertCircle, Loader2, CheckCircle, ShieldCheck, Building2
 } from 'lucide-react';
-import { User } from '../types';
-import { INITIAL_USERS } from '../constants';
+import { User, Unit } from '../types';
+import { useApp } from '../context/AppContext';
+import { authService } from '../services/authService';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, selectedUnitId: string) => void;
+  users: User[];
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [selectedUserId, setSelectedUserId] = useState(INITIAL_USERS[0].id);
-  const [isMounting, setIsMounting] = useState(true);
+  const { addNotification, units } = useApp();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
+  // Garante que uma unidade esteja sempre selecionada assim que a lista carregar
   useEffect(() => {
-    const timer = setTimeout(() => setIsMounting(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    if (units.length > 0 && !selectedUnitId) {
+      setSelectedUnitId(units[0].id);
+    }
+  }, [units]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = INITIAL_USERS.find(u => u.id === selectedUserId);
-    if (user) onLogin(user);
+    if (!selectedUnitId) {
+      setError('Por favor, selecione uma unidade operacional para continuar.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      const result = await authService.login(email, password);
+      if (result.success && result.user) {
+        onLogin(result.user, selectedUnitId);
+      } else {
+        setError(result.error || 'Credenciais inválidas');
+      }
+    } catch (err) {
+      setError('Erro de conexão com o serviço de autenticação.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setIsSendingRequest(true);
+    try {
+      await authService.resetPassword(forgotEmail);
+      setRequestSent(true);
+      addNotification({ 
+        type: 'success', 
+        title: 'Solicitação Enviada', 
+        message: 'O administrador foi notificado sobre seu pedido de recuperação.' 
+      });
+    } catch (err) {
+      addNotification({ 
+        type: 'critical', 
+        title: 'Erro no Acesso', 
+        message: 'Não foi possível processar seu pedido de recuperação agora.' 
+      });
+    } finally {
+      setIsSendingRequest(false);
+    }
+  };
+
+  const fillDemoCredentials = (type: 'admin' | 'supervisor' | 'tech') => {
+    if (type === 'admin') {
+        setEmail('admin@aviagen.com');
+        setSelectedUnitId('u1');
+    } else if (type === 'supervisor') {
+        setEmail('uberaba@aviagen.com');
+        setSelectedUnitId('u2');
+    } else {
+        setEmail('tec@aviagen.com');
+        setSelectedUnitId('u1');
+    }
+    setPassword('aviagen2026');
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#020617] grid-pattern">
-      {/* Background Ambience - Subtle Glows */}
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full"></div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F0F4F8] p-4 font-sans text-slate-800">
       
-      {/* Login Card */}
-      <div className={`max-w-md w-full transition-all duration-1000 transform ${isMounting ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'}`}>
-        <div className="glass rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden relative">
-          {/* Scanner Line Animation */}
-          <div className="scanner-line opacity-30"></div>
+      {/* Cabeçalho da Marca */}
+      <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex items-center justify-center gap-2 mb-2">
+            {/* Logo Estilizado */}
+            <div className="relative">
+                <div className="absolute -top-1 -right-2 text-[10px] font-black text-[#E31B23]">®</div>
+                <h1 className="text-5xl font-bold tracking-tighter text-[#1A3673]" style={{ fontFamily: 'Times New Roman, serif', fontStyle: 'italic' }}>
+                    Aviagen
+                </h1>
+            </div>
+        </div>
+        <h2 className="text-xl font-bold text-[#1A3673]">Sistema de Gestão Industrial</h2>
+        <p className="text-slate-400 text-xs font-medium uppercase tracking-[0.2em]">Plataforma GMAO/CMMS</p>
+      </div>
+
+      {/* Card de Login */}
+      <div className="w-full max-w-[420px] bg-white rounded-[24px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-slate-100 p-8 md:p-10 animate-in zoom-in-95 duration-500 relative overflow-hidden">
+        
+        {/* Barra decorativa superior */}
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#1A3673] to-[#2A4B94]"></div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
           
-          <div className="p-10 md:p-12 flex flex-col items-center">
-            {/* Branding */}
-            <div className="mb-10 text-center">
-              <div className="w-16 h-16 bg-white flex items-center justify-center rounded-2xl shadow-xl mx-auto mb-6 transform hover:rotate-3 transition-transform">
-                <div className="font-black text-[#0047ba] text-3xl italic tracking-tighter">A</div>
-              </div>
-              <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">
-                SGI <span className="text-[#0047ba]">AVIAGEN</span>
-              </h1>
-              <p className="text-white/20 text-[8px] font-black tracking-[0.4em] uppercase mt-2">Industrial Management System</p>
+          {/* Seletor de Unidade */}
+          <div className="bg-slate-50 p-1.5 rounded-xl flex gap-1 border border-slate-100">
+             {units.map(unit => (
+                <button
+                   key={unit.id}
+                   type="button"
+                   onClick={() => setSelectedUnitId(unit.id)}
+                   className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2 ${
+                      selectedUnitId === unit.id 
+                      ? 'bg-white text-[#1A3673] shadow-sm border border-slate-100' 
+                      : 'text-slate-400 hover:text-slate-600'
+                   }`}
+                >
+                   <Building2 size={12} className={selectedUnitId === unit.id ? 'text-[#E31B23]' : ''} />
+                   {unit.name.replace('Aviagen ', '').replace('Incubatório ', '')}
+                </button>
+             ))}
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700 ml-1">Email Corporativo</label>
+                <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1A3673] transition-colors">
+                        <Mail size={18} />
+                    </div>
+                    <input 
+                        type="email" 
+                        required
+                        className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-[#1A3673] focus:ring-4 focus:ring-[#1A3673]/5 transition-all placeholder:text-slate-300"
+                        placeholder="seu.email@aviagen.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                    />
+                </div>
             </div>
 
-            <form onSubmit={handleLogin} className="w-full space-y-6">
-              {/* User Selection */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Identificação</label>
+            <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700 ml-1">Senha de Acesso</label>
                 <div className="relative group">
-                  <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-white/10 group-focus-within:text-[#0047ba] transition-colors" size={18} />
-                  <select 
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-14 pr-10 text-white focus:outline-none focus:border-[#0047ba] appearance-none cursor-pointer font-bold text-xs uppercase tracking-widest transition-all hover:bg-white/10"
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                  >
-                    {INITIAL_USERS.map(u => (
-                      <option key={u.id} value={u.id} className="bg-[#0f172a]">{u.name} • {u.role}</option>
-                    ))}
-                  </select>
-                  <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-white/10 rotate-90" size={14} />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1A3673] transition-colors">
+                        <Lock size={18} />
+                    </div>
+                    <input 
+                        type="password" 
+                        required
+                        className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-[#1A3673] focus:ring-4 focus:ring-[#1A3673]/5 transition-all placeholder:text-slate-300"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                    />
                 </div>
-              </div>
-
-              {/* Password Simulation */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Chave de Acesso</label>
-                <div className="relative group">
-                  <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 text-white/10 group-focus-within:text-[#0047ba] transition-colors" size={18} />
-                  <input 
-                    type="password" 
-                    placeholder="DIGITE SEU PIN"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-14 pr-8 text-white focus:outline-none focus:border-[#0047ba] font-black text-[10px] tracking-[0.5em] transition-all hover:bg-white/10"
-                    defaultValue="********"
-                  />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button 
-                type="submit"
-                className="w-full py-5 mt-4 bg-[#0047ba] hover:bg-white hover:text-[#0047ba] text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-blue-900/20 transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <Activity size={16} className="group-hover:animate-pulse" />
-                <span>Iniciar Sessão</span>
-                <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </form>
-
-            {/* Micro details inside card */}
-            <div className="mt-10 pt-6 border-t border-white/5 w-full flex justify-between items-center opacity-20">
-               <div className="flex items-center gap-2 text-[7px] font-black uppercase tracking-widest text-white">
-                 <Globe size={10} />
-                 Encrypted Node
-               </div>
-               <div className="flex items-center gap-2 text-[7px] font-black uppercase tracking-widest text-white">
-                 Secure Link
-                 <ShieldCheck size={10} />
-               </div>
             </div>
           </div>
+
+          {error && (
+            <div className="flex items-center gap-3 p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 animate-in shake">
+              <AlertCircle size={16} className="shrink-0"/> {error}
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-[#1A3673] hover:bg-[#152c5c] text-white font-bold py-4 rounded-xl shadow-[0_10px_20px_-10px_rgba(26,54,115,0.4)] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
+          >
+            {loading ? <Loader2 size={20} className="animate-spin" /> : (
+              <>
+                <span>Entrar no Sistema</span>
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </button>
+
+          <div className="text-center pt-2">
+             <button 
+                type="button" 
+                onClick={() => { setShowForgotModal(true); setRequestSent(false); }}
+                className="text-xs font-bold text-slate-400 hover:text-[#1A3673] transition-colors"
+             >
+                Esqueceu sua senha?
+             </button>
+          </div>
+        </form>
+
+        {/* Demo Section - Discreet */}
+        <div className="mt-8 pt-6 border-t border-slate-100 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+            <button onClick={() => fillDemoCredentials('admin')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">ADMIN</button>
+            <button onClick={() => fillDemoCredentials('supervisor')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">SUP</button>
+            <button onClick={() => fillDemoCredentials('tech')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">TECH</button>
         </div>
       </div>
 
-      {/* Footer Credit */}
-      <div className={`mt-8 transition-all duration-1000 delay-500 transform ${isMounting ? 'opacity-0' : 'opacity-100'}`}>
-        <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em] hover:text-white/30 transition-colors cursor-default">
-          Criado e desenvolvido por <span className="text-[#0047ba]/40">Emerson Henrique</span>
-        </p>
+      {/* Footer Seguro */}
+      <div className="mt-10 flex flex-col items-center gap-6 animate-in fade-in duration-1000 delay-300">
+         <div className="flex items-center gap-2 text-slate-500 bg-white/50 px-4 py-2 rounded-full border border-slate-200/50 backdrop-blur-sm">
+            <ShieldCheck size={14} className="text-[#E31B23]" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Ambiente Seguro & Monitorado</span>
+         </div>
+
+         <div className="text-center opacity-60">
+            <p className="text-[11px] text-slate-600 font-medium">Desenvolvido por <span className="font-bold text-[#1A3673]">Emerson Henrique</span></p>
+            <p className="text-[9px] text-slate-400 mt-0.5">2026 - Todos os direitos reservados</p>
+         </div>
       </div>
+
+      {/* Modal de Recuperação */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white max-w-sm w-full p-8 rounded-[24px] shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setShowForgotModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-slate-600 transition-colors"><Building2 className="rotate-45" size={20}/></button> {/* Using icon as X for style or normal X */}
+            
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-blue-50 text-[#1A3673] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
+                <ShieldCheck size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Recuperação de Acesso</h3>
+              <p className="text-xs text-slate-500 mt-1">Informe seu email corporativo para reset.</p>
+            </div>
+
+            {requestSent ? (
+              <div className="text-center space-y-6">
+                <div className="flex items-center justify-center gap-2 text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                  <CheckCircle size={18}/>
+                  <span className="text-xs font-bold">Solicitação enviada com sucesso!</span>
+                </div>
+                <button onClick={() => setShowForgotModal(false)} className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">Voltar ao Login</button>
+              </div>
+            ) : (
+              <form onSubmit={handleRequestReset} className="space-y-4">
+                <input 
+                  type="email" 
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:outline-none focus:border-[#1A3673]"
+                  placeholder="email@aviagen.com"
+                  value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                />
+                <button 
+                  disabled={isSendingRequest}
+                  className="w-full py-3 bg-[#1A3673] text-white rounded-xl text-xs font-bold tracking-wide uppercase shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isSendingRequest ? <Loader2 size={16} className="animate-spin" /> : 'Enviar Solicitação'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
