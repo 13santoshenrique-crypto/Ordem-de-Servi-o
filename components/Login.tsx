@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Mail, Lock, ArrowRight, AlertCircle, Loader2, CheckCircle, ShieldCheck, Building2
@@ -5,14 +6,15 @@ import {
 import { User, Unit } from '../types';
 import { useApp } from '../context/AppContext';
 import { authService } from '../services/authService';
+import { DownloadPrompt } from './DownloadPrompt';
+import { LUZIANIA_UNIT_ID } from '../constants';
 
 interface LoginProps {
   onLogin: (user: User, selectedUnitId: string) => void;
-  users: User[];
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const { addNotification, units } = useApp();
+  const { addNotification, units, addResetRequest, users } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');
@@ -21,6 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  const [newRequestedPassword, setNewRequestedPassword] = useState('');
   const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
 
@@ -33,17 +36,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUnitId) {
-      setError('Por favor, selecione uma unidade operacional para continuar.');
-      return;
-    }
     setError('');
     setLoading(true);
 
     try {
-      const result = await authService.login(email, password);
+      const result = await authService.login(email, password, users);
       if (result.success && result.user) {
-        onLogin(result.user, selectedUnitId);
+        onLogin(result.user, selectedUnitId || LUZIANIA_UNIT_ID);
       } else {
         setError(result.error || 'Credenciais inválidas');
       }
@@ -56,16 +55,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail) return;
+    if (!forgotEmail || !newRequestedPassword) return;
     setIsSendingRequest(true);
     try {
-      await authService.resetPassword(forgotEmail);
+      await addResetRequest(forgotEmail, newRequestedPassword);
       setRequestSent(true);
-      addNotification({ 
-        type: 'success', 
-        title: 'Solicitação Enviada', 
-        message: 'O administrador foi notificado sobre seu pedido de recuperação.' 
-      });
     } catch (err) {
       addNotification({ 
         type: 'critical', 
@@ -77,22 +71,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
-  const fillDemoCredentials = (type: 'admin' | 'supervisor' | 'tech') => {
-    if (type === 'admin') {
-        setEmail('admin@aviagen.com');
-        setSelectedUnitId('u1');
-    } else if (type === 'supervisor') {
-        setEmail('uberaba@aviagen.com');
-        setSelectedUnitId('u2');
-    } else {
-        setEmail('tec@aviagen.com');
-        setSelectedUnitId('u1');
-    }
-    setPassword('aviagen2026');
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F0F4F8] p-4 font-sans text-slate-800">
+      <DownloadPrompt />
       
       {/* Cabeçalho da Marca */}
       <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -117,25 +98,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <form onSubmit={handleLogin} className="space-y-6">
           
-          {/* Seletor de Unidade */}
-          <div className="bg-slate-50 p-1.5 rounded-xl flex gap-1 border border-slate-100">
-             {units.map(unit => (
-                <button
-                   key={unit.id}
-                   type="button"
-                   onClick={() => setSelectedUnitId(unit.id)}
-                   className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2 ${
-                      selectedUnitId === unit.id 
-                      ? 'bg-white text-[#1A3673] shadow-sm border border-slate-100' 
-                      : 'text-slate-400 hover:text-slate-600'
-                   }`}
-                >
-                   <Building2 size={12} className={selectedUnitId === unit.id ? 'text-[#E31B23]' : ''} />
-                   {unit.name.replace('Aviagen ', '').replace('Incubatório ', '')}
-                </button>
-             ))}
-          </div>
-
           <div className="space-y-5">
             <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-700 ml-1">Email Corporativo</label>
@@ -201,13 +163,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              </button>
           </div>
         </form>
-
-        {/* Demo Section - Discreet */}
-        <div className="mt-8 pt-6 border-t border-slate-100 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
-            <button onClick={() => fillDemoCredentials('admin')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">ADMIN</button>
-            <button onClick={() => fillDemoCredentials('supervisor')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">SUP</button>
-            <button onClick={() => fillDemoCredentials('tech')} className="px-2 py-1 text-[9px] font-bold text-slate-400 hover:bg-slate-100 rounded">TECH</button>
-        </div>
       </div>
 
       {/* Footer Seguro */}
@@ -217,9 +172,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <span className="text-[10px] font-bold uppercase tracking-widest">Ambiente Seguro & Monitorado</span>
          </div>
 
-         <div className="text-center opacity-60">
-            <p className="text-[11px] text-slate-600 font-medium">Desenvolvido por <span className="font-bold text-[#1A3673]">Emerson Henrique</span></p>
-            <p className="text-[9px] text-slate-400 mt-0.5">2026 - Todos os direitos reservados</p>
+         <div className="text-center opacity-70">
+            <p className="text-[10px] font-black text-[#1A3673] uppercase tracking-[0.2em]">
+               CRIADO E DESENVOLVIDO POR EMERSON HENRIQUE 2026
+            </p>
          </div>
       </div>
 
@@ -227,7 +183,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {showForgotModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-white max-w-sm w-full p-8 rounded-[24px] shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => setShowForgotModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-slate-600 transition-colors"><Building2 className="rotate-45" size={20}/></button> {/* Using icon as X for style or normal X */}
+            <button onClick={() => setShowForgotModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-slate-600 transition-colors"><Building2 className="rotate-45" size={20}/></button>
             
             <div className="text-center mb-6">
               <div className="w-14 h-14 bg-blue-50 text-[#1A3673] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
@@ -247,14 +203,28 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             ) : (
               <form onSubmit={handleRequestReset} className="space-y-4">
-                <input 
-                  type="email" 
-                  required
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:outline-none focus:border-[#1A3673]"
-                  placeholder="email@aviagen.com"
-                  value={forgotEmail}
-                  onChange={e => setForgotEmail(e.target.value)}
-                />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email Corporativo</label>
+                  <input 
+                    type="email" 
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:outline-none focus:border-[#1A3673]"
+                    placeholder="email@aviagen.com"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nova Senha Desejada</label>
+                  <input 
+                    type="password" 
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:outline-none focus:border-[#1A3673]"
+                    placeholder="Sua nova senha"
+                    value={newRequestedPassword}
+                    onChange={e => setNewRequestedPassword(e.target.value)}
+                  />
+                </div>
                 <button 
                   disabled={isSendingRequest}
                   className="w-full py-3 bg-[#1A3673] text-white rounded-xl text-xs font-bold tracking-wide uppercase shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2 disabled:opacity-70"

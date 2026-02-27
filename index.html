@@ -4,20 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGI-Aviagen | Command Center</title>
+    <title>SGI-Aviagen | Gestão Industrial</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1A3673">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SGI Aviagen">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2942/2942544.png">
     <style>
         :root {
-            /* Paleta Corporativa Aviagen */
-            --bg-canvas: #F8FAFC;         /* Slate 50 */
-            --corp-blue: #1A3673;         /* Aviagen Deep Blue */
-            --corp-blue-light: #2A4B94;   /* Lighter Blue for hovers */
-            --corp-red: #E31B23;          /* Aviagen Red */
-            --corp-red-light: #FFEBEC;    /* Light Red for backgrounds */
-            --text-primary: #0F172A;      /* Slate 900 */
-            --text-secondary: #64748B;    /* Slate 500 */
-            --border-color: #E2E8F0;      /* Slate 200 */
+            --bg-canvas: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --corp-blue: #1A3673;
+            --corp-red: #E31B23;
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
         }
 
         body {
@@ -27,73 +30,53 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Card Industrial Executivo */
         .industrial-card {
-            background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 1.5rem; /* Mais arredondado e moderno */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--bg-card);
+            border: 1px solid #E2E8F0;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
         }
 
         .industrial-card:hover {
-            border-color: var(--corp-blue);
-            box-shadow: 0 20px 25px -5px rgba(26, 54, 115, 0.08), 0 10px 10px -5px rgba(26, 54, 115, 0.03);
-            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-color: #CBD5E1;
         }
 
-        /* Inputs Profissionais */
         .industrial-input {
             width: 100%;
-            background-color: #ffffff;
+            background-color: #FFFFFF;
             border: 1px solid #CBD5E1;
-            border-radius: 0.75rem;
-            padding: 1rem 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            outline: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
             transition: all 0.2s;
-            font-size: 0.9rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
         }
         
         .industrial-input:focus {
             border-color: var(--corp-blue);
-            box-shadow: 0 0 0 4px rgba(26, 54, 115, 0.1);
+            ring: 2px;
+            ring-color: rgba(26, 54, 115, 0.1);
+            outline: none;
         }
 
-        .industrial-label {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: var(--text-secondary);
-            margin-left: 0.25rem;
-            margin-bottom: 0.5rem;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 
-        /* Botão Primário Corporativo */
         .btn-primary {
             background-color: var(--corp-blue);
             color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
             font-weight: 700;
             text-transform: uppercase;
+            font-size: 0.75rem;
             letter-spacing: 0.05em;
-            padding: 1rem 2rem;
-            border-radius: 0.75rem;
             transition: all 0.2s;
-            border: 1px solid transparent;
         }
-        .btn-primary:hover {
-            background-color: var(--corp-blue-light);
-            box-shadow: 0 10px 15px -3px rgba(26, 54, 115, 0.25);
-            transform: translateY(-1px);
-        }
-
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
     </style>
 <script type="importmap">
 {
@@ -110,9 +93,19 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body class="min-h-screen overflow-hidden">
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SGI-Aviagen PWA: Service Worker registrado'))
+                    .catch(err => console.log('SGI-Aviagen PWA: Erro no registro', err));
+            });
+        }
+    </script>
 </body>
 </html>

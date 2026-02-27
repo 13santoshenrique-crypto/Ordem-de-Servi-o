@@ -3,18 +3,21 @@ export enum ServiceType {
   PREVENTIVE = 'Preventivo',
   CORRECTIVE = 'Corretivo',
   IMPROVEMENT = 'Melhoria',
-  PREDICTIVE = 'Preditivo'
+  PREDICTIVE = 'Preditivo',
+  BIOSAFETY = 'Biosseguridade'
 }
 
 export enum OSStatus {
   OPEN = 'Aberta',
   FINISHED = 'Finalizada',
-  PAUSED = 'Pausada'
+  PAUSED = 'Pausada',
+  WAITING_PARTS = 'Aguardando Peças'
 }
 
 export enum UserRole {
   ADMIN = 'ADM',
-  TECHNICIAN = 'TECNICO',
+  MAINTENANCE_OFFICER = 'Oficial de Manutenção',
+  UTILITIES_OFFICER = 'Oficial de Utilidades',
   GLOBAL_ADMIN = 'GLOBAL_ADMIN'
 }
 
@@ -33,8 +36,7 @@ export interface Unit {
   shareDashboard: boolean;
   costReductionGoal: number;
   annualBudget: number;
-  eagleTraxStatus?: 'CONNECTED' | 'DISCONNECTED';
-  eagleTraxApiKey?: string;
+  biosafetyScore: number;
 }
 
 export interface User {
@@ -48,21 +50,33 @@ export interface User {
   language: 'pt' | 'en' | 'es';
 }
 
+export interface AssetDocument {
+  id: string;
+  name: string;
+  url?: string;
+  expirationDate?: string;
+  type: 'MANUAL' | 'CERTIFICATE' | 'LICENSE' | 'OTHER';
+}
+
 export interface Asset {
   id: string;
+  tag: string;
   name: string;
   model: string;
   serialNumber: string;
   sector: string;
   status: 'OPERATIONAL' | 'MAINTENANCE' | 'STOPPED';
   unitId: string;
+  photoUrl?: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
-  maintenancePlanName?: string;
-  eagleTraxData?: EagleTraxTelemetry;
+  manualUrl?: string; // Link para PDF do manual
+  documents?: AssetDocument[];
+  criticalParts?: string[]; // IDs de itens do estoque que são vitais para esta máquina
   maintenanceFreqDays?: number;
-  eagleTraxUrl?: string;
   components?: AssetComponent[];
+  reliabilityIndex: number; // Score 0-100 calculado pela IA
+  maintenancePlanName?: string;
 }
 
 export interface InventoryItem {
@@ -73,6 +87,14 @@ export interface InventoryItem {
   minStock: number;
   unit: string;
   unitId: string;
+}
+
+export interface SafetyChecklist {
+  energyLocked: boolean;
+  ppeVerified: boolean;
+  areaSignaled: boolean;
+  riskAssessmentDone: boolean;
+  sanitizationDone?: boolean; // Requisito Aviagen
 }
 
 export interface ServiceOrder {
@@ -90,22 +112,30 @@ export interface ServiceOrder {
   unitId: string;
   cost?: number;
   partsUsed?: { itemId: string; quantity: number; cost: number; name: string }[];
-  signature?: string;
+  signature?: string; 
+  evidencePhoto?: string; 
+  location?: { lat: number; lng: number }; 
+  safetyCheck?: SafetyChecklist;
+  technicalNotes?: string;
 }
 
-export interface ActionPlan5W2H {
+export interface GlobalAlert {
   id: string;
-  what: string;
-  why: string;
-  where: string;
-  when: string;
-  who: string;
-  how: string;
-  howMuch: number;
-  status: ActionStatus;
-  unitId: string;
-  sector: string;
-  createdAt: string;
+  title: string;
+  message: string;
+  severity: 'CRITICAL' | 'INFO';
+  timestamp: string;
+  author: string;
+}
+
+export interface AssetComponent {
+  id: string;
+  name: string;
+  installDate: string;
+  lifespanHours: number;
+  currentHours: number;
+  status: 'OK' | 'WARNING' | 'CRITICAL';
+  inventoryItemId?: string;
 }
 
 export interface MonthlyExpense {
@@ -114,7 +144,6 @@ export interface MonthlyExpense {
   month: number;
   year: number;
   totalRealCost: number;
-  notes?: string;
 }
 
 export interface AuditLogEntry {
@@ -138,10 +167,10 @@ export interface AppNotification {
 export interface TSTAuditItem {
   id: string;
   name: string;
-  inspectionDate: string;
   expirationDate: string;
   category: string;
   unitId: string;
+  inspectionDate: string;
 }
 
 export interface RecurringTask {
@@ -154,19 +183,19 @@ export interface RecurringTask {
   active: boolean;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-  timestamp: Date;
-}
-
-export interface PredictionRisk {
-  equipment: string;
-  riskLevel: string;
-  probability: number;
-  recommendation: string;
-  estimatedSaving: number;
+export interface ActionPlan5W2H {
+  id: string;
+  what: string;
+  why: string;
+  where: string;
+  when: string;
+  who: string;
+  how: string;
+  howMuch: number;
+  status: ActionStatus;
+  unitId: string;
   sector: string;
+  createdAt: string;
 }
 
 export interface AuditQuestion {
@@ -174,15 +203,15 @@ export interface AuditQuestion {
   category: string;
   text: string;
   weight: number;
-  score: number;
   options: { label: string; value: number }[];
+  score: number;
   na?: boolean;
 }
 
 export interface AuditTemplate {
   id: string;
   name: string;
-  questions: AuditQuestion[];
+  questions: Omit<AuditQuestion, 'score'>[];
   importDate: string;
 }
 
@@ -198,6 +227,15 @@ export interface AuditSimulation {
   status: 'DRAFT' | 'COMPLETED';
 }
 
+export interface PredictionRisk {
+  equipment: string;
+  riskLevel: string;
+  probability: number;
+  recommendation: string;
+  estimatedSaving: number;
+  sector: string;
+}
+
 export interface DetailedAIReport {
   title: string;
   date: string;
@@ -206,36 +244,35 @@ export interface DetailedAIReport {
   recommendations: string[];
 }
 
-export type ThemeType = 'slate' | 'blue' | 'industrial';
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  timestamp: Date;
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  email: string;
+  requestedPassword: string;
+  timestamp: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export type ThemeType = 'slate' | 'blue' | 'emerald';
 
 export interface ExternalMaintenanceEvent {
   id: string;
-  source: string;
-  assetId: string;
-  assetName: string;
   title: string;
-  date: string;
-  severity: string;
+  assetName: string;
   description: string;
-  confidence: number;
+  date: string;
 }
 
-export interface AssetComponent {
-  id: string;
-  name: string;
-  installDate: string;
-  lifespanHours: number;
-  currentHours: number;
-  status: 'OK' | 'WARNING' | 'CRITICAL';
-}
-
-export interface EagleTraxTelemetry {
-  temperature: number;
-  humidity: number;
-  co2: number;
-  damper: number;
-  turning: 'LEFT' | 'RIGHT' | 'LEVEL';
-  programStep: number;
-  totalDays: number;
-  lastUpdate: string;
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
 }

@@ -34,11 +34,13 @@ const BoardReports: React.FC<BoardReportsProps> = ({ orders, unit, units }) => {
     window.print();
   };
 
+  const unitOrders = orders.filter(o => o.unitId === unit.id);
+
   const metrics = {
-    totalValue: orders.reduce((a, b) => a + (b.cost || 0), 0),
+    totalValue: unitOrders.reduce((a, b) => a + (b.cost || 0), 0),
     compliance: 98.4,
-    criticalFailures: orders.filter(o => o.type === 'Corretivo' && o.status === 'Aberta').length,
-    opexSaved: orders.filter(o => o.type === 'Preditivo').length * 1500,
+    criticalFailures: unitOrders.filter(o => o.type === 'Corretivo' && o.status === 'Aberta').length,
+    opexSaved: unitOrders.filter(o => o.type === 'Preditivo').length * 1500,
   };
 
   return (

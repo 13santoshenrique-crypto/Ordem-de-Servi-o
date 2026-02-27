@@ -8,29 +8,30 @@ const networkDelay = () => new Promise(resolve => setTimeout(resolve, 300 + Math
 // Em produção, isso validaria um hash bcrypt no backend.
 // Aqui, verificamos contra a base simulada, mas abstraímos a lógica.
 export const authService = {
-  login: async (email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
+  login: async (email: string, password: string, users: User[]): Promise<{ success: boolean; user?: User; error?: string }> => {
     await networkDelay();
 
     // Normalização
     const cleanEmail = email.toLowerCase().trim();
     
-    // Busca usuário (Lógica simulada de Backend)
-    // OBS: As senhas em 'constants.ts' foram removidas. 
-    // Em um app real, o backend validaria o hash. 
-    // Para este frontend "stand-alone", aceitaremos uma senha padrão segura se configurada, ou validaremos contra um mock seguro.
-    
-    const user = INITIAL_USERS.find(u => u.email === cleanEmail);
+    // Busca usuário na lista fornecida (que vem do DB via AppContext) ou na lista inicial como fallback
+    const user = users.find(u => u.email.toLowerCase() === cleanEmail) || 
+                 INITIAL_USERS.find(u => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
       return { success: false, error: "Usuário não encontrado no diretório corporativo." };
     }
 
-    // Validação de "Senha Mestra" para demonstração ou senha específica
-    // Em produção: if (await bcrypt.compare(password, user.passwordHash)) ...
-    const isValid = (password === "aviagen2026") || (password === "123" && process.env.NODE_ENV !== 'production'); 
+    // Validação: 
+    // 1. Senha específica do usuário (se definida no DB)
+    // 2. Senha mestra (aviagen2026)
+    // 3. Senha admin fixa (para Emerson)
+    const isValid = (user.password && password === user.password) ||
+                    (cleanEmail === "esantos@aviagen.com" && password === "emerson123") || 
+                    (password === "aviagen2026") || 
+                    (password === "123" && process.env.NODE_ENV !== 'production'); 
 
     if (isValid) {
-      // Retorna usuário sem dados sensíveis (se houvesse)
       return { success: true, user };
     }
 

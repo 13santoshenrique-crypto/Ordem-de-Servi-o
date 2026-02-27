@@ -194,7 +194,7 @@ const FiveWTwoH: React.FC = () => {
             <Search size={18} className="text-slate-400" />
             <input 
               type="text" 
-              placeholder="PESQUISAR AÇÃO OU DEPARTAMENTO..." 
+              placeholder="PESQUISAR AÇÃO..." 
               className="bg-transparent border-none text-[10px] text-slate-800 focus:outline-none w-full font-black uppercase tracking-wider"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -237,12 +237,12 @@ const FiveWTwoH: React.FC = () => {
                 </div>
 
                 <div className="p-8 grid grid-cols-2 md:grid-cols-3 gap-6">
-                   <MiniInfo label="Why (Por quê?)" value={plan.why} icon={HelpCircle} />
-                   <MiniInfo label="Where (Onde?)" value={plan.where} icon={MapPin} />
-                   <MiniInfo label="Who (Quem?)" value={plan.who} icon={UserIcon} />
-                   <MiniInfo label="When (Quando?)" value={plan.when} icon={Clock} />
-                   <MiniInfo label="How Much (Quanto?)" value={`${activeUnit?.currency} ${plan.howMuch.toLocaleString()}`} icon={DollarSign} />
-                   <MiniInfo label="How (Como?)" value={plan.how} icon={ChevronRight} fullWidth />
+                   <MiniInfo label="Por Quê (Motivo)" value={plan.why} icon={HelpCircle} />
+                   <MiniInfo label="Onde (Local)" value={plan.where} icon={MapPin} />
+                   <MiniInfo label="Quem (Responsável)" value={plan.who} icon={UserIcon} />
+                   <MiniInfo label="Quando (Prazo)" value={plan.when} icon={Clock} />
+                   <MiniInfo label="Quanto (Custo)" value={`${activeUnit?.currency} ${plan.howMuch.toLocaleString()}`} icon={DollarSign} />
+                   <MiniInfo label="Como (Método)" value={plan.how} icon={ChevronRight} fullWidth />
                 </div>
              </div>
            ))
@@ -266,44 +266,44 @@ const FiveWTwoH: React.FC = () => {
 
               <form onSubmit={handleSave} className="space-y-8">
                  <div className="space-y-2">
-                    <label className="industrial-label">What (O que deve ser feito?)</label>
+                    <label className="industrial-label">O Que (Ação)</label>
                     <input type="text" required className="industrial-input uppercase" value={formData.what} onChange={e => setFormData({...formData, what: e.target.value.toUpperCase()})} placeholder="EX: SUBSTITUIÇÃO DO MOTOR DA INCUBADORA 02" />
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                        <label className="industrial-label">Why (Por que fazer?)</label>
+                        <label className="industrial-label">Por Quê (Motivo)</label>
                         <input type="text" required className="industrial-input" value={formData.why} onChange={e => setFormData({...formData, why: e.target.value})} placeholder="Evitar parada de produção e perda de ovos" />
                     </div>
                     <div className="space-y-2">
-                        <label className="industrial-label">Where (Em que local?)</label>
+                        <label className="industrial-label">Onde (Local)</label>
                         <input type="text" required className="industrial-input" value={formData.where} onChange={e => setFormData({...formData, where: e.target.value})} placeholder="Setor de Incubação - Planta 01" />
                     </div>
                     <div className="space-y-2">
-                        <label className="industrial-label">Who (Quem é o responsável?)</label>
+                        <label className="industrial-label">Quem (Responsável)</label>
                         <input type="text" required className="industrial-input" value={formData.who} onChange={e => setFormData({...formData, who: e.target.value})} placeholder="Nome do Técnico ou Supervisor" />
                     </div>
                     <div className="space-y-2">
-                        <label className="industrial-label">When (Qual o prazo/frequência?)</label>
+                        <label className="industrial-label">Quando (Prazo)</label>
                         <input type="text" required className="industrial-input" value={formData.when} onChange={e => setFormData({...formData, when: e.target.value})} placeholder="DD/MM/AAAA ou Imediato" />
                     </div>
                  </div>
 
                  <div className="space-y-2">
-                    <label className="industrial-label">How (Como será executado?)</label>
+                    <label className="industrial-label">Como (Método de Execução)</label>
                     <textarea rows={3} required className="industrial-input resize-none" value={formData.how} onChange={e => setFormData({...formData, how: e.target.value})} placeholder="Passo a passo técnico da execução..." />
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-2">
-                        <label className="industrial-label">How Much (Custo Estimado)</label>
+                        <label className="industrial-label">Quanto (Custo Estimado)</label>
                         <div className="relative">
                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                            <input type="number" step="0.01" className="industrial-input pl-12" value={formData.howMuch} onChange={e => setFormData({...formData, howMuch: Number(e.target.value)})} />
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="industrial-label">Departamento Envolvido (Opcional)</label>
+                        <label className="industrial-label">Setor (Opcional)</label>
                         <div className="relative">
                            <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                            <input type="text" className="industrial-input pl-12 uppercase" value={formData.sector} onChange={e => setFormData({...formData, sector: e.target.value.toUpperCase()})} placeholder="EX: MANUTENÇÃO, RH, TI..." />

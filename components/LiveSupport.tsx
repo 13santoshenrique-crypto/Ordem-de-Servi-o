@@ -65,7 +65,20 @@ const LiveSupport: React.FC = () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch (e) {
+        console.warn('Could not get both audio and video, trying audio only...', e);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e2) {
+          console.error('No audio device found:', e2);
+          alert('Não foi possível encontrar um microfone ou câmera. Verifique as permissões do seu navegador.');
+          setIsConnecting(false);
+          return;
+        }
+      }
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
 

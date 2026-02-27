@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { User, ServiceOrder, Unit, UserRole } from './types';
+import React, { useState, useEffect } from 'react';
+import { User, ServiceOrder, Unit, UserRole, OSStatus } from './types';
 import { AppProvider, useApp } from './context/AppContext';
 import HeaderNav from './components/HeaderNav';
 import Dashboard from './components/Dashboard';
 import OSHistory from './components/OSHistory';
-import IAModule from './components/IAModule';
 import AdminPanel from './components/AdminPanel';
+import Settings from './components/Settings';
 import Login from './components/Login';
 import BoardReports from './components/BoardReports';
 import Inventory from './components/Inventory';
@@ -17,27 +17,40 @@ import TSTAudit from './components/TSTAudit';
 import FiveWTwoH from './components/FiveWTwoH';
 import CommandPalette from './components/CommandPalette';
 import ComplianceAlert from './components/ComplianceAlert';
-import LiveSupport from './components/LiveSupport';
 import ErrorBoundary from './components/ErrorBoundary';
+import { DownloadPrompt } from './components/DownloadPrompt';
+import { ProactiveAlertSystem } from './components/ProactiveAlertSystem';
+import ApiKeySelector from './components/ApiKeySelector';
 import { db } from './services/database';
-import { Globe, ShieldCheck } from 'lucide-react';
+import { LUZIANIA_UNIT_ID } from './constants';
 
 const MainApp: React.FC = () => {
   const { 
     orders, setOrders, users, setUsers, inventory, setInventory, 
     expenses, setExpenses, units, setUnits, assets, setAssets, 
     recurringTasks, setRecurringTasks, tstAudit, setTstAudit,
-    actionPlans, setActionPlans,
+    actionPlans, setActionPlans, resetRequests,
     addNotification, loading, logAction, currentUser, setCurrentUser,
     activeUnitId, setActiveUnitId
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [preFilledOSData, setPreFilledOSData] = useState<any>(null);
-  const [isSessionChecked, setIsSessionChecked] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSessionChecked, setIsSessionChecked] = useState(false);
+  const [isApiKeySelected, setIsApiKeySelected] = useState(false);
 
-  // Validação de Sessão Inicial
+  useEffect(() => {
+    const checkApiKey = async () => {
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setIsApiKeySelected(selected);
+      } else {
+        setIsApiKeySelected(true);
+      }
+    };
+    checkApiKey();
+  }, []);
+
   useEffect(() => {
     const savedUser = localStorage.getItem('aviagen_session_user');
     const savedUnit = localStorage.getItem('aviagen_active_unit');
@@ -46,156 +59,141 @@ const MainApp: React.FC = () => {
         const parsedUser = JSON.parse(savedUser);
         setCurrentUser(parsedUser);
         if (savedUnit) setActiveUnitId(savedUnit);
-        else if (parsedUser.unitId) setActiveUnitId(parsedUser.unitId);
       } catch (e) { localStorage.removeItem('aviagen_session_user'); }
     }
     setIsSessionChecked(true);
   }, [setCurrentUser, setActiveUnitId]);
 
-  // Validação de Integridade da Unidade Ativa
-  useEffect(() => {
-    if (!loading && units.length > 0 && activeUnitId) {
-      const isValidUnit = units.find(u => u.id === activeUnitId);
-      if (!isValidUnit) {
-        // Se a unidade salva não existe mais, reverte para a primeira disponível
-        const fallbackId = units[0].id;
-        setActiveUnitId(fallbackId);
-        localStorage.setItem('aviagen_active_unit', fallbackId);
-        console.warn(`Unidade ativa inválida detectada. Revertendo para ${fallbackId}`);
-      }
-    }
-  }, [loading, units, activeUnitId, setActiveUnitId]);
-
-  // Auto-Save
   useEffect(() => {
     if (!loading && isSessionChecked) {
-      db.saveOrders(orders);
-      db.saveInventory(inventory);
-      db.saveUsers(users);
-      db.saveExpenses(expenses);
-      db.saveAssets(assets);
-      db.saveUnits(units);
-      db.saveRecurringTasks(recurringTasks);
-      db.saveTSTAudit(tstAudit);
-      db.saveActionPlans(actionPlans);
+      const timer = setTimeout(() => {
+        db.saveOrders(orders); db.saveInventory(inventory); db.saveUsers(users);
+        db.saveExpenses(expenses); db.saveAssets(assets); db.saveUnits(units);
+        db.saveRecurringTasks(recurringTasks); db.saveTSTAudit(tstAudit); db.saveActionPlans(actionPlans);
+        db.saveResetRequests(resetRequests);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [orders, inventory, users, expenses, assets, units, recurringTasks, tstAudit, actionPlans, loading, isSessionChecked]);
-
-  const activeUnit = units.find(u => u.id === activeUnitId) || units[0];
-
-  const handleLogin = (user: User, selectedUnitId: string) => {
-    localStorage.setItem('aviagen_session_user', JSON.stringify(user));
-    localStorage.setItem('aviagen_active_unit', selectedUnitId);
-    setCurrentUser(user);
-    setActiveUnitId(selectedUnitId);
-    logAction("LOGIN", `Acesso validado na unidade ${selectedUnitId}.`, user);
-  };
+  }, [orders, inventory, users, expenses, assets, units, recurringTasks, tstAudit, actionPlans, resetRequests, loading, isSessionChecked]);
 
   const handleLogout = () => {
-    if (currentUser) logAction("LOGOUT", `Usuário encerrou sessão.`, currentUser);
     localStorage.removeItem('aviagen_session_user');
     localStorage.removeItem('aviagen_active_unit');
     setCurrentUser(null);
   };
 
-  const handleUpdateOrder = useCallback((id: string, updates: Partial<ServiceOrder>, partsUsed?: any[]) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
-    if (partsUsed && partsUsed.length > 0) {
-      setInventory(prevInv => {
-        const newInv = [...prevInv];
-        partsUsed.forEach(part => {
-          const itemIdx = newInv.findIndex(i => i.id === part.itemId);
-          if (itemIdx !== -1) {
-            const newStock = Math.max(0, newInv[itemIdx].stock - part.quantity);
-            newInv[itemIdx] = { ...newInv[itemIdx], stock: newStock };
-            if (newStock <= newInv[itemIdx].minStock) {
-              addNotification({ type: 'critical', title: 'Estoque Crítico', message: `Item: ${newInv[itemIdx].name}.` });
-            }
-          }
-        });
-        return newInv;
-      });
-    }
-  }, [setOrders, setInventory, addNotification]);
+  // --- LÓGICA CORE DE NEGÓCIO ---
+  const handleCreateOS = (formData: any) => {
+    // Garantir que a OS tenha um ID único e esteja vinculada à unidade ativa
+    const newOS: ServiceOrder = {
+      ...formData,
+      id: formData.id || `OS-LHZ-${Date.now()}`,
+      unitId: activeUnitId || LUZIANIA_UNIT_ID,
+      status: formData.status || OSStatus.OPEN,
+      timeSpent: formData.timeSpent || 0
+    };
 
-  const handleNavigate = (tab: string, data?: any) => {
-    setActiveTab(tab);
-    if (data) setPreFilledOSData(data);
-    setIsSearchOpen(false);
+    // 1. Adicionar a Ordem ao Histórico
+    setOrders(prev => [newOS, ...prev]);
+
+    // 2. Baixa Automática de Estoque (100% Integração)
+    if (newOS.partsUsed && newOS.partsUsed.length > 0) {
+        let itemsUpdatedCount = 0;
+        setInventory(prevInventory => {
+            return prevInventory.map(item => {
+                const usedPart = newOS.partsUsed?.find(p => p.itemId === item.id);
+                if (usedPart) {
+                    itemsUpdatedCount++;
+                    // Evita estoque negativo
+                    return { ...item, stock: Math.max(0, item.stock - usedPart.quantity) };
+                }
+                return item;
+            });
+        });
+
+        if (itemsUpdatedCount > 0) {
+            addNotification({
+                type: 'info',
+                title: 'Almoxarifado Atualizado',
+                message: `Baixa automática realizada em ${itemsUpdatedCount} itens do estoque.`
+            });
+        }
+    }
+    
+    // Log de Auditoria
+    if (currentUser) {
+        logAction('OS_CREATED', `Nova OS #${newOS.id} criada para o ativo ${newOS.assetId || 'Geral'}.`, currentUser);
+    }
   };
 
+  const activeUnit = units.find(u => u.id === activeUnitId) || units[0];
+
   if (loading || !isSessionChecked) return (
-    <div className="h-screen bg-slate-50 flex flex-col items-center justify-center gap-6">
-       <div className="w-16 h-16 bg-[#1A3673] rounded-2xl animate-bounce flex items-center justify-center text-white text-2xl font-black italic shadow-2xl">A</div>
-       <p className="font-black uppercase text-[10px] tracking-[0.5em] text-[#1A3673]">Iniciando SGI Aviagen...</p>
+    <div className="h-screen bg-slate-50 flex items-center justify-center">
+       <div className="w-12 h-12 bg-[#1A3673] rounded-xl animate-bounce" />
     </div>
   );
 
-  if (!currentUser) return <Login onLogin={handleLogin} users={users} />;
+  if (!currentUser) return <Login onLogin={(u, unit) => {
+    setCurrentUser(u);
+    setActiveUnitId(unit);
+    localStorage.setItem('aviagen_session_user', JSON.stringify(u));
+    localStorage.setItem('aviagen_active_unit', unit);
+  }} />;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden font-sans text-slate-900 bg-[#F8FAFC]">
+    <div className="flex flex-col h-screen bg-[#F8FAFC] overflow-hidden">
+      {!isApiKeySelected && <ApiKeySelector onKeySelected={() => setIsApiKeySelected(true)} />}
+      <DownloadPrompt />
+      <ProactiveAlertSystem />
       <ErrorBoundary>
         <ComplianceAlert />
-        <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={handleNavigate} />
+        <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onNavigate={(t) => setActiveTab(t)} />
+        
         <HeaderNav 
-          activeTab={activeTab} setActiveTab={setActiveTab} role={currentUser.role} 
-          userName={currentUser.name} onLogout={handleLogout} onOpenSearch={() => setIsSearchOpen(true)}
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          role={currentUser.role} 
+          userName={currentUser.name} 
+          onLogout={handleLogout} 
+          onOpenSearch={() => setIsSearchOpen(true)} 
         />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar">
-          <div className="max-w-[1600px] mx-auto min-h-full flex flex-col">
-            <div className="flex-1">
-                {activeTab === 'dashboard' && <Dashboard unit={activeUnit} currentUnitId={activeUnitId} role={currentUser.role} onRequestNewOS={() => setActiveTab('history')} />}
-                {activeTab === 'schedule' && <MaintenanceSchedule onGenerateOS={(data) => handleNavigate('history', data)} />}
-                {activeTab === 'history' && (
-                  <OSHistory 
-                    orders={orders} technicians={users} inventory={inventory} 
-                    onUpdate={handleUpdateOrder} 
-                    onAddOS={(d) => setOrders(prev => [{...d, unitId: activeUnitId, id: `OS-${activeUnitId}-${Date.now()}`}, ...prev])} 
-                    role={currentUser.role} currentUser={currentUser}
-                    preFilledData={preFilledOSData} clearPreFilled={() => setPreFilledOSData(null)}
-                  />
-                )}
-                {activeTab === 'tst' && <TSTAudit />}
-                {activeTab === 'plans' && <FiveWTwoH />}
-                {activeTab === 'support' && <LiveSupport />}
-                {activeTab === 'assets' && <AssetsRegistry assets={assets.filter(a => a.unitId === activeUnitId)} setAssets={setAssets} />}
-                {activeTab === 'inventory' && <Inventory inventory={inventory.filter(i => i.unitId === activeUnitId)} setInventory={setInventory} />}
-                {activeTab === 'finance' && <FinancialControl expenses={expenses.filter(e => e.unitId === activeUnitId)} onAddExpense={(d) => setExpenses(prev => [{ ...d, id: `exp-${Date.now()}` }, ...prev])} unit={activeUnit} orders={orders.filter(o => o.unitId === activeUnitId)} />}
-                {activeTab === 'reports' && <BoardReports orders={orders.filter(o => o.unitId === activeUnitId)} unit={activeUnit} units={units} />}
-                {activeTab === 'ai' && <IAModule orders={orders.filter(o => o.unitId === activeUnitId)} users={users} role={currentUser.role} onGenerateOS={(data) => handleNavigate('history', data)} />}
-                {activeTab === 'admin' && (
-                  <AdminPanel 
-                    users={users} units={units} 
-                    onAddUser={(d) => setUsers(prev => [{ ...d, id: `u-${Date.now()}` }, ...prev])} 
-                    onUpdateUser={(id, up) => setUsers(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} 
-                    onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} 
-                    onAddUnit={(d) => setUnits(prev => [...prev, {...d, id: `u-${Date.now()}`}])} 
-                    onUpdateUnit={(id, up) => setUnits(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} 
-                    onDeleteUnit={(id) => setUnits(prev => prev.filter(u => u.id !== id))} 
+        
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
+          <div className="max-w-[1600px] mx-auto pb-20">
+            {activeTab === 'dashboard' && <Dashboard unit={activeUnit} onRequestNewOS={() => setActiveTab('history')} onReviewAssets={() => setActiveTab('assets')} />}
+            
+            {activeTab === 'history' && (
+                <OSHistory 
+                    orders={orders} 
+                    technicians={users} 
+                    inventory={inventory} 
+                    role={currentUser.role} 
                     currentUser={currentUser} 
-                  />
-                )}
-            </div>
+                    onUpdate={(id, up) => setOrders(prev => prev.map(o => o.id === id ? {...o, ...up} : o))} 
+                    onAddOS={handleCreateOS} 
+                />
+            )}
 
-            <footer className="mt-20 mb-10 pt-10 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6 opacity-60 hover:opacity-100 transition-opacity duration-300">
-               <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-400">
-                     <Globe size={14} />
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Aviagen Global Governance • Ecosystem v2.7.2</p>
-               </div>
-               
-               <div className="flex items-center gap-4">
-                  <div className="h-4 w-px bg-slate-200 hidden md:block"></div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">
-                     Criado e desenvolvido por <span className="text-[#1A3673] italic font-black">Emerson Henrique 2026</span>
-                  </p>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
-                     <ShieldCheck size={12} />
-                     <span className="text-[8px] font-black uppercase tracking-widest">Acesso Seguro</span>
-                  </div>
-               </div>
+            {activeTab === 'schedule' && <MaintenanceSchedule onGenerateOS={(asset) => {
+                // Lógica de atalho para criar OS a partir do calendário
+                // Neste caso, redirecionamos para a aba History e poderíamos pré-preencher o form
+                setActiveTab('history');
+            }} />}
+            
+            {activeTab === 'inventory' && <Inventory inventory={inventory} setInventory={setInventory} />}
+            {activeTab === 'assets' && <AssetsRegistry assets={assets} setAssets={setAssets} />}
+            {activeTab === 'finance' && <FinancialControl expenses={expenses} onAddExpense={(e) => setExpenses(prev => [e as any, ...prev])} unit={activeUnit} orders={orders} />}
+            {activeTab === 'reports' && <BoardReports orders={orders} unit={activeUnit} units={units} />}
+            {activeTab === 'tst' && <TSTAudit />}
+            {activeTab === 'plans' && <FiveWTwoH />}
+            {activeTab === 'settings' && <Settings />}
+            {activeTab === 'admin' && <AdminPanel users={users} units={units} currentUser={currentUser} onAddUser={(u) => setUsers(prev => [...prev, u as any])} onUpdateUser={(id, up) => setUsers(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} onAddUnit={(u) => setUnits(prev => [...prev, u as any])} onUpdateUnit={(id, up) => setUnits(prev => prev.map(u => u.id === id ? {...u, ...up} : u))} onDeleteUnit={(id) => setUnits(prev => prev.filter(u => u.id !== id))} />}
+          
+            <footer className="mt-20 py-8 border-t border-slate-200 flex flex-col items-center justify-center text-center opacity-60 hover:opacity-100 transition-opacity select-none">
+               <p className="text-[10px] font-black text-[#1A3673] uppercase tracking-[0.3em]">
+                  CRIADO E DESENVOLVIDO POR EMERSON HENRIQUE 2026
+               </p>
             </footer>
           </div>
         </main>
@@ -204,10 +202,5 @@ const MainApp: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
-  <AppProvider>
-    <MainApp />
-  </AppProvider>
-);
-
+const App: React.FC = () => <AppProvider><MainApp /></AppProvider>;
 export default App;

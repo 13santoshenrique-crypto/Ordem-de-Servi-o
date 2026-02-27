@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  DollarSign, Calendar, Plus, History, Scale, TrendingUp, AlertCircle, CheckCircle2, ReceiptText
+  DollarSign, Calendar, Plus, History, Scale, TrendingUp, AlertCircle, CheckCircle2, ReceiptText, Pencil, Save, X, Wallet
 } from 'lucide-react';
 import { MonthlyExpense, Unit, ServiceOrder } from '../types';
+import { useApp } from '../context/AppContext';
 
 interface FinancialControlProps {
   expenses: MonthlyExpense[];
@@ -13,12 +14,22 @@ interface FinancialControlProps {
 }
 
 const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpense, unit, orders }) => {
+  const { setUnits } = useApp(); // Hook para atualizar o budget globalmente
   const [formData, setFormData] = useState({
     month: new Date().getMonth(),
     year: new Date().getFullYear(),
     totalRealCost: 0,
     notes: ''
   });
+
+  // Estados para edição do Budget
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [tempBudget, setTempBudget] = useState(unit.annualBudget);
+
+  // Sincroniza o estado local se a unidade mudar externamente
+  useEffect(() => {
+    setTempBudget(unit.annualBudget);
+  }, [unit.annualBudget]);
 
   const months = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -41,6 +52,11 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
     setFormData({ ...formData, totalRealCost: 0, notes: '' });
   };
 
+  const handleUpdateBudget = () => {
+    setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, annualBudget: Number(tempBudget) } : u));
+    setIsEditingBudget(false);
+  };
+
   const diff = formData.totalRealCost - systemicCost;
   const accuracy = formData.totalRealCost > 0 ? (systemicCost / formData.totalRealCost) * 100 : 0;
 
@@ -58,67 +74,126 @@ const FinancialControl: React.FC<FinancialControlProps> = ({ expenses, onAddExpe
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         
-        {/* Formulário de Gasto */}
-        <div className="lg:col-span-4 crystal-card p-10">
-           <div className="flex items-center gap-4 mb-10">
-              <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center">
-                 <ReceiptText size={24} />
+        {/* Coluna Esquerda: Budget e Entrada */}
+        <div className="lg:col-span-4 space-y-8">
+           
+           {/* Card de Gestão de Budget */}
+           <div className="crystal-card p-8 bg-[#1A3673] text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+              
+              <div className="flex justify-between items-start relative z-10">
+                 <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                       <Wallet size={20} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Orçamento Anual</span>
+                 </div>
+                 {!isEditingBudget && (
+                    <button 
+                       onClick={() => setIsEditingBudget(true)}
+                       className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all text-white"
+                       title="Editar Budget"
+                    >
+                       <Pencil size={16} />
+                    </button>
+                 )}
               </div>
-              <h3 className="text-xl font-extrabold text-slate-900 uppercase tracking-tight">Entrada de Gasto</h3>
+
+              <div className="relative z-10">
+                 {isEditingBudget ? (
+                    <div className="flex flex-col gap-3 animate-in fade-in">
+                       <input 
+                          type="number" 
+                          autoFocus
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-2xl font-black text-white focus:outline-none focus:bg-white/20"
+                          value={tempBudget}
+                          onChange={(e) => setTempBudget(Number(e.target.value))}
+                       />
+                       <div className="flex gap-2">
+                          <button onClick={handleUpdateBudget} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs uppercase flex items-center justify-center gap-2">
+                             <Save size={14} /> Salvar
+                          </button>
+                          <button onClick={() => { setIsEditingBudget(false); setTempBudget(unit.annualBudget); }} className="px-3 bg-white/10 hover:bg-white/20 text-white rounded-lg">
+                             <X size={14} />
+                          </button>
+                       </div>
+                    </div>
+                 ) : (
+                    <div>
+                       <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-medium text-white/60">{unit.currency}</span>
+                          <span className="text-4xl font-black tracking-tighter">{unit.annualBudget.toLocaleString()}</span>
+                       </div>
+                       <p className="text-[9px] font-bold text-emerald-400 mt-2 uppercase tracking-widest flex items-center gap-1">
+                          <TrendingUp size={10} /> Disponível para Operação
+                       </p>
+                    </div>
+                 )}
+              </div>
            </div>
 
-           <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <label className="industrial-label">Mês Fiscal</label>
-                    <select 
-                      className="industrial-input !py-4 appearance-none"
-                      value={formData.month}
-                      onChange={(e) => setFormData({...formData, month: Number(e.target.value)})}
-                    >
-                      {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
+           {/* Formulário de Gasto */}
+           <div className="crystal-card p-10">
+              <div className="flex items-center gap-4 mb-10">
+                 <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center">
+                    <ReceiptText size={24} />
                  </div>
+                 <h3 className="text-xl font-extrabold text-slate-900 uppercase tracking-tight">Entrada de Gasto</h3>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-8">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <label className="industrial-label">Mês Fiscal</label>
+                       <select 
+                         className="industrial-input !py-4 appearance-none"
+                         value={formData.month}
+                         onChange={(e) => setFormData({...formData, month: Number(e.target.value)})}
+                       >
+                         {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                       </select>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="industrial-label">Ano</label>
+                       <input 
+                         type="number" 
+                         className="industrial-input !py-4"
+                         value={formData.year}
+                         onChange={(e) => setFormData({...formData, year: Number(e.target.value)})}
+                       />
+                    </div>
+                 </div>
+
                  <div className="space-y-2">
-                    <label className="industrial-label">Ano</label>
-                    <input 
-                      type="number" 
-                      className="industrial-input !py-4"
-                      value={formData.year}
-                      onChange={(e) => setFormData({...formData, year: Number(e.target.value)})}
+                    <label className="industrial-label">Valor Total Informado (R$)</label>
+                    <div className="relative">
+                       <div className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-700 font-black text-xl">R$</div>
+                       <input 
+                         type="number" 
+                         className="industrial-input pl-16 text-3xl font-black"
+                         placeholder="0,00"
+                         value={formData.totalRealCost}
+                         onChange={(e) => setFormData({...formData, totalRealCost: Number(e.target.value)})}
+                       />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="industrial-label">Notas do Fechamento</label>
+                    <textarea 
+                      className="industrial-input !px-6 !py-4 resize-none text-sm font-medium"
+                      rows={3}
+                      placeholder="Observações complementares..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
                     />
                  </div>
-              </div>
 
-              <div className="space-y-2">
-                 <label className="industrial-label">Valor Total Informado (R$)</label>
-                 <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-700 font-black text-xl">R$</div>
-                    <input 
-                      type="number" 
-                      className="industrial-input pl-16 text-3xl font-black"
-                      placeholder="0,00"
-                      value={formData.totalRealCost}
-                      onChange={(e) => setFormData({...formData, totalRealCost: Number(e.target.value)})}
-                    />
-                 </div>
-              </div>
-
-              <div className="space-y-2">
-                 <label className="industrial-label">Notas do Fechamento</label>
-                 <textarea 
-                   className="industrial-input !px-6 !py-4 resize-none text-sm font-medium"
-                   rows={3}
-                   placeholder="Observações complementares..."
-                   value={formData.notes}
-                   onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                 />
-              </div>
-
-              <button type="submit" className="w-full btn-primary">
-                 Registrar Auditoria
-              </button>
-           </form>
+                 <button type="submit" className="w-full btn-primary">
+                    Registrar Auditoria
+                 </button>
+              </form>
+           </div>
         </div>
 
         {/* Dash de Auditoria */}

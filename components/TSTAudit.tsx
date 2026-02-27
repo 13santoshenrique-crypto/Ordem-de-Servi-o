@@ -5,7 +5,7 @@ import {
   AlertTriangle, CheckCircle2, X, Trash2, 
   Edit3, Clock, Info, FileText, ClipboardCheck, 
   BarChart3, ArrowRight, Save, HelpCircle, Hammer, 
-  Upload, FileSpreadsheet, Loader2, Play, TrendingUp, Printer, Share2, Smartphone
+  Upload, FileSpreadsheet, Loader2, Play, TrendingUp, Printer, Share2, Smartphone, PenTool, Eraser
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TSTAuditItem, AuditSimulation, AuditQuestion, AuditTemplate, ServiceType, OSStatus } from '../types';
@@ -30,8 +30,14 @@ const TSTAudit: React.FC = () => {
   const [templates, setTemplates] = useState<AuditTemplate[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [showAuditForm, setShowAuditForm] = useState(false);
+  const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
+  const [builderData, setBuilderData] = useState<Partial<AuditTemplate>>({ name: '', questions: [] });
+  const [newQuestion, setNewQuestion] = useState({ text: '', category: '', weight: 1 });
   const [simulations, setSimulations] = useState<AuditSimulation[]>([]);
   const [currentAudit, setCurrentAudit] = useState<Partial<AuditSimulation> | null>(null);
+  const [auditSignature, setAuditSignature] = useState<string | null>(null);
+  const auditCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isAuditDrawing, setIsAuditDrawing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -153,6 +159,47 @@ const TSTAudit: React.FC = () => {
     }
   };
 
+  // --- BUILDER MANUAL ---
+  const handleAddQuestionToBuilder = () => {
+    if (!newQuestion.text || !newQuestion.category) return;
+    
+    const q: AuditQuestion = {
+        id: `q-${Date.now()}`,
+        text: newQuestion.text,
+        category: newQuestion.category,
+        weight: newQuestion.weight,
+        options: [
+            { label: 'Conforme', value: 10 },
+            { label: 'Não Conforme', value: 0 },
+            { label: 'N/A', value: 0 } // Value 0 but handled as NA logic
+        ],
+        score: 0,
+        na: false
+    };
+
+    setBuilderData(prev => ({
+        ...prev,
+        questions: [...(prev.questions || []), q]
+    }));
+    setNewQuestion({ ...newQuestion, text: '' }); // Keep category for speed
+  };
+
+  const handleSaveBuilder = () => {
+      if (!builderData.name || !builderData.questions || builderData.questions.length === 0) return;
+      
+      const newTemplate: AuditTemplate = {
+          id: `tpl-manual-${Date.now()}`,
+          name: builderData.name,
+          importDate: new Date().toISOString(),
+          questions: builderData.questions
+      };
+      
+      setTemplates(prev => [newTemplate, ...prev]);
+      setShowTemplateBuilder(false);
+      setBuilderData({ name: '', questions: [] });
+      addNotification({ type: 'success', title: 'Template Criado', message: 'Checklist manual salvo com sucesso.' });
+  };
+
   // --- MOTOR DE AUDITORIA DINÂMICA ---
   const startAuditFromTemplate = (template: AuditTemplate) => {
     const newAudit: AuditSimulation = {
@@ -217,7 +264,7 @@ const TSTAudit: React.FC = () => {
   };
 
   const saveAudit = () => {
-    if (!currentAudit) return;
+    if (!currentAudit || !auditSignature) return alert("Assinatura obrigatória para validar a auditoria.");
     
     const criticalFailures = currentAudit.questions?.filter(q => 
       !q.na && q.score === 0 && q.weight >= 4
@@ -246,10 +293,11 @@ const TSTAudit: React.FC = () => {
       });
     }
 
-    const completed = { ...currentAudit, status: 'COMPLETED' } as AuditSimulation;
+    const completed = { ...currentAudit, status: 'COMPLETED', signature: auditSignature } as AuditSimulation;
     setSimulations(prev => [completed, ...prev]);
     setShowAuditForm(false);
     setCurrentAudit(null);
+    setAuditSignature(null);
     addNotification({ type: 'success', title: 'Auditoria Finalizada', message: `Score Oficial: ${completed.finalScore}%` });
   };
 
@@ -337,29 +385,34 @@ const TSTAudit: React.FC = () => {
         </div>
       </header>
 
-      {activeView === 'templates' && (
-        <div className="space-y-8">
-           <div className="flex justify-between items-center">
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Templates Digitais</h3>
-              <input type="file" ref={fileInputRef} hidden accept=".xlsx, .csv" onChange={handleFileUpload} />
-              <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-[#1A3673] text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase transition-all flex items-center gap-3 shadow-lg hover:bg-slate-900">
-                {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} Importar Planilha
-              </button>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {templates.map(tpl => (
-                <div key={tpl.id} className="industrial-card p-10 group transition-all hover:border-[#1A3673]">
-                   <FileSpreadsheet size={24} className="mb-6 text-[#1A3673]" />
-                   <h4 className="text-xl font-black text-slate-900 uppercase italic mb-2">{tpl.name}</h4>
-                   <div className="flex gap-4 mt-8">
-                      <button onClick={() => startAuditFromTemplate(tpl)} className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black text-[9px] uppercase tracking-widest">Iniciar</button>
-                      <button onClick={() => setTemplates(prev => prev.filter(t => t.id !== tpl.id))} className="p-4 bg-red-50 text-red-400 rounded-xl"><Trash2 size={16} /></button>
-                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
-      )}
+       {activeView === 'templates' && (
+         <div className="space-y-8">
+            <div className="flex justify-between items-center">
+               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Templates Digitais</h3>
+               <div className="flex gap-3">
+                  <button onClick={() => setShowTemplateBuilder(true)} className="bg-white border border-slate-200 text-[#1A3673] px-6 py-4 rounded-xl font-black text-[10px] uppercase transition-all flex items-center gap-2 hover:bg-slate-50">
+                     <Plus size={16} /> Criar Manualmente
+                  </button>
+                  <input type="file" ref={fileInputRef} hidden accept=".xlsx, .csv" onChange={handleFileUpload} />
+                  <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-[#1A3673] text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase transition-all flex items-center gap-3 shadow-lg hover:bg-slate-900">
+                    {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} Importar Planilha
+                  </button>
+               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               {templates.map(tpl => (
+                 <div key={tpl.id} className="industrial-card p-10 group transition-all hover:border-[#1A3673]">
+                    <FileSpreadsheet size={24} className="mb-6 text-[#1A3673]" />
+                    <h4 className="text-xl font-black text-slate-900 uppercase italic mb-2">{tpl.name}</h4>
+                    <div className="flex gap-4 mt-8">
+                       <button onClick={() => startAuditFromTemplate(tpl)} className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black text-[9px] uppercase tracking-widest">Iniciar</button>
+                       <button onClick={() => setTemplates(prev => prev.filter(t => t.id !== tpl.id))} className="p-4 bg-red-50 text-red-400 rounded-xl"><Trash2 size={16} /></button>
+                    </div>
+                 </div>
+               ))}
+            </div>
+         </div>
+       )}
 
       {activeView === 'simulations' && (
         <div className="space-y-8">
@@ -411,7 +464,6 @@ const TSTAudit: React.FC = () => {
                 <div key={item.id} className={`industrial-card p-8 group ${isExpired ? 'border-red-200 bg-red-50/20' : ''}`}>
                   <div className="flex justify-between items-start mb-4">
                      <h4 className="text-lg font-black text-slate-900 uppercase italic leading-tight">{item.name}</h4>
-                     <button onClick={() => handleOpenDocForm(item)} className="text-slate-300 hover:text-[#1A3673]"><Edit3 size={16}/></button>
                   </div>
                   <p className="text-[10px] font-black text-[#1A3673] uppercase mb-4">{item.category}</p>
                   <div className="flex items-center justify-between">
@@ -440,11 +492,76 @@ const TSTAudit: React.FC = () => {
                     <div className="space-y-2"><label className="industrial-label">Data Emissão</label><input type="date" required className="industrial-input" value={docFormData.inspectionDate} onChange={e => setDocFormData({...docFormData, inspectionDate: e.target.value})} /></div>
                     <div className="space-y-2"><label className="industrial-label">Data Validade</label><input type="date" required className="industrial-input" value={docFormData.expirationDate} onChange={e => setDocFormData({...docFormData, expirationDate: e.target.value})} /></div>
                  </div>
-                 <button type="submit" className="w-full btn-primary !py-4 flex items-center justify-center gap-2"><Save size={18} /> Salvar em {activeUnitId}</button>
+                <div className="grid grid-cols-2 gap-4">
+                   <button type="button" onClick={() => setShowDocForm(false)} className="w-full py-4 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                   <button type="submit" className="w-full btn-primary !py-4 flex items-center justify-center gap-2"><Save size={18} /> Salvar</button>
+                </div>
               </form>
            </div>
         </div>
       )}
+
+      {showTemplateBuilder && (
+           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
+              <div className="bg-white max-w-4xl w-full h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
+                 <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h2 className="text-2xl font-black text-[#1A3673] uppercase italic">Novo Checklist</h2>
+                    <button onClick={() => setShowTemplateBuilder(false)}><X size={24} className="text-slate-400 hover:text-red-500"/></button>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-10 space-y-8">
+                    <div className="space-y-2">
+                       <label className="industrial-label">Nome do Template</label>
+                       <input type="text" className="industrial-input" placeholder="Ex: Auditoria NR-12 - Prensas" value={builderData.name} onChange={e => setBuilderData({...builderData, name: e.target.value})} />
+                    </div>
+
+                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Adicionar Item</h4>
+                       <div className="grid grid-cols-12 gap-4 items-end">
+                          <div className="col-span-3 space-y-1">
+                             <label className="text-[9px] font-bold text-slate-400 uppercase">Categoria</label>
+                             <input type="text" className="industrial-input py-3 text-xs" placeholder="Ex: Elétrica" value={newQuestion.category} onChange={e => setNewQuestion({...newQuestion, category: e.target.value})} />
+                          </div>
+                          <div className="col-span-6 space-y-1">
+                             <label className="text-[9px] font-bold text-slate-400 uppercase">Pergunta / Item de Verificação</label>
+                             <input type="text" className="industrial-input py-3 text-xs" placeholder="Ex: Cabos estão protegidos?" value={newQuestion.text} onChange={e => setNewQuestion({...newQuestion, text: e.target.value})} />
+                          </div>
+                          <div className="col-span-2 space-y-1">
+                             <label className="text-[9px] font-bold text-slate-400 uppercase">Peso (1-5)</label>
+                             <input type="number" min="1" max="5" className="industrial-input py-3 text-xs" value={newQuestion.weight} onChange={e => setNewQuestion({...newQuestion, weight: Number(e.target.value)})} />
+                          </div>
+                          <div className="col-span-1">
+                             <button onClick={handleAddQuestionToBuilder} className="w-full py-3 bg-[#1A3673] text-white rounded-xl flex items-center justify-center hover:bg-slate-900"><Plus size={18}/></button>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Itens Adicionados ({builderData.questions?.length || 0})</h4>
+                       {builderData.questions?.length === 0 && <p className="text-slate-300 text-xs italic text-center py-8">Nenhum item adicionado ainda.</p>}
+                       <div className="space-y-2">
+                          {builderData.questions?.map((q, idx) => (
+                             <div key={idx} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
+                                <div>
+                                   <p className="text-[9px] font-black text-[#1A3673] uppercase">{q.category}</p>
+                                   <p className="text-xs font-bold text-slate-700 uppercase">{q.text}</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                   <span className="text-[9px] font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">Peso {q.weight}</span>
+                                   <button onClick={() => setBuilderData(prev => ({...prev, questions: prev.questions?.filter((_, i) => i !== idx)}))} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="p-8 border-t border-slate-100 bg-slate-50 flex justify-end">
+                    <button onClick={handleSaveBuilder} disabled={!builderData.name || !builderData.questions?.length} className="px-10 py-4 bg-[#1A3673] text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-50 hover:bg-slate-900 transition-all">Salvar Template</button>
+                 </div>
+              </div>
+           </div>
+       )}
 
       {showAuditForm && currentAudit && (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-2xl z-[2000] flex items-center justify-center lg:p-6 animate-in fade-in">
@@ -479,6 +596,90 @@ const TSTAudit: React.FC = () => {
                        </div>
                     </div>
                 ))}
+
+                {/* Campo de Assinatura na Auditoria */}
+                <div className="bg-white border border-slate-200 rounded-[2rem] p-10 space-y-6">
+                   <div className="flex items-center gap-3">
+                      <PenTool className="text-[#1A3673]" size={20} />
+                      <h3 className="text-lg font-black text-slate-900 uppercase italic">Assinatura de Validação</h3>
+                   </div>
+                   <div className="border-2 border-slate-100 rounded-3xl bg-slate-50 p-2 relative max-w-xl">
+                      <canvas 
+                         ref={auditCanvasRef}
+                         width={600}
+                         height={200}
+                         className="w-full h-48 cursor-crosshair touch-none"
+                         onMouseDown={(e) => {
+                            setIsAuditDrawing(true);
+                            const canvas = auditCanvasRef.current;
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            const rect = canvas.getBoundingClientRect();
+                            ctx.beginPath();
+                            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                         }}
+                         onTouchStart={(e) => {
+                            setIsAuditDrawing(true);
+                            const canvas = auditCanvasRef.current;
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            const rect = canvas.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            ctx.beginPath();
+                            ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                         }}
+                         onMouseMove={(e) => {
+                            if (!isAuditDrawing) return;
+                            const canvas = auditCanvasRef.current;
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            const rect = canvas.getBoundingClientRect();
+                            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                            ctx.stroke();
+                            ctx.lineWidth = 2;
+                            ctx.lineCap = 'round';
+                            ctx.strokeStyle = '#1A3673';
+                         }}
+                         onTouchMove={(e) => {
+                            if (!isAuditDrawing) return;
+                            const canvas = auditCanvasRef.current;
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            const rect = canvas.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                            ctx.stroke();
+                            ctx.lineWidth = 2;
+                            ctx.lineCap = 'round';
+                            ctx.strokeStyle = '#1A3673';
+                         }}
+                         onMouseUp={() => {
+                            setIsAuditDrawing(false);
+                            if (auditCanvasRef.current) setAuditSignature(auditCanvasRef.current.toDataURL());
+                         }}
+                         onTouchEnd={() => {
+                            setIsAuditDrawing(false);
+                            if (auditCanvasRef.current) setAuditSignature(auditCanvasRef.current.toDataURL());
+                         }}
+                         onMouseLeave={() => setIsAuditDrawing(false)}
+                      />
+                      <button 
+                         onClick={() => {
+                            const ctx = auditCanvasRef.current?.getContext('2d');
+                            ctx?.clearRect(0, 0, 600, 200);
+                            setAuditSignature(null);
+                         }}
+                         className="absolute bottom-4 right-4 p-3 bg-white text-slate-400 hover:text-red-500 rounded-xl shadow-sm border border-slate-100 transition-all"
+                      >
+                         <Eraser size={16} />
+                      </button>
+                   </div>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">A assinatura é obrigatória para o encerramento oficial do protocolo de TST.</p>
+                </div>
               </div>
               <div className="p-12 bg-white border-t border-slate-100 flex justify-end gap-4">
                 <button onClick={() => setShowAuditForm(false)} className="px-12 py-6 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>

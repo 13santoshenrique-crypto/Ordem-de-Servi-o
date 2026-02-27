@@ -13,7 +13,7 @@ interface InventoryProps {
 }
 
 const Inventory: React.FC<InventoryProps> = ({ inventory, setInventory }) => {
-  const { units, addNotification } = useApp();
+  const { units, activeUnitId, addNotification } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState<'add' | 'edit' | null>(null);
   const [activeItem, setActiveItem] = useState<InventoryItem | null>(null);
@@ -21,7 +21,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, setInventory }) => {
   const [showScanner, setShowScanner] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
-  const currentUnitId = inventory[0]?.unitId || 'u1';
+  const currentUnitId = activeUnitId || 'u1';
 
   const [formData, setFormData] = useState<Omit<InventoryItem, 'id' | 'unitId'>>({
     name: '', cost: 0, stock: 0, minStock: 0, unit: 'un'

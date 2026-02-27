@@ -1,0 +1,22 @@
+{
+  "name": "SGI Aviagen",
+  "short_name": "SGI Aviagen",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "description": "Sistema de Gestão Industrial Aviagen",
+  "background_color": "#F8FAFC",
+  "theme_color": "#1A3673",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942544.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942544.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

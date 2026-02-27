@@ -1,28 +1,18 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { ServiceOrder, PredictionRisk, DetailedAIReport, ActionPlan5W2H } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-/**
- * Função robusta para limpar e extrair JSON de respostas da IA.
- * Remove blocos de código Markdown e encontra os limites do objeto/array JSON.
- */
-const cleanJsonString = (str: string) => {
+const cleanJsonString = (str: string | undefined) => {
   if (!str) return "{}";
-  
   try {
-    // 1. Remove formatação de código Markdown
     let cleaned = str.replace(/```json/g, "").replace(/```/g, "");
-    
-    // 2. Encontra o início e fim do JSON (Objeto ou Array)
     const firstOpenBrace = cleaned.indexOf('{');
     const firstOpenBracket = cleaned.indexOf('[');
-    
     let startIndex = -1;
     let endIndex = -1;
 
-    // Determina se começa com { ou [
     if (firstOpenBrace !== -1 && (firstOpenBracket === -1 || firstOpenBrace < firstOpenBracket)) {
         startIndex = firstOpenBrace;
         endIndex = cleaned.lastIndexOf('}') + 1;
@@ -31,16 +21,34 @@ const cleanJsonString = (str: string) => {
         endIndex = cleaned.lastIndexOf(']') + 1;
     }
 
-    // Se encontrou limites válidos, extrai apenas o JSON
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
         return cleaned.substring(startIndex, endIndex);
     }
-    
     return cleaned.trim();
   } catch (e) {
     console.error("Erro ao limpar JSON da IA:", e);
-    return "{}"; // Retorna objeto vazio seguro em caso de falha crítica
+    return "{}";
   }
+};
+
+// Fix: Using gemini-3-pro-image-preview for multimodal image analysis.
+// responseMimeType and responseSchema are NOT supported for nano banana series models.
+// Requesting JSON structure in the prompt for manual parsing.
+export const analyze5SWorkspace = async (base64Image: string, mimeType: string) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-image-preview",
+    contents: {
+      parts: [
+        { inlineData: { data: base64Image, mimeType } },
+        { text: "Realize uma auditoria visual 5S (Seiri, Seiton, Seiso, Seiketsu, Shitsuke) nesta área industrial. Identifique desorganização, sujeira, ferramentas fora do lugar ou riscos. Retorne APENAS um objeto JSON com os campos: score (number), compliant (boolean), issuesDetected (string[]), recommendation (string)." }
+      ]
+    },
+    config: {
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
 };
 
 export const getEducationalTeaching = async (query: string, history: { role: 'user' | 'model'; text: string }[] = []) => {
@@ -69,10 +77,25 @@ export const getPredictiveMaintenance = async (orders: ServiceOrder[]): Promise<
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Analise o histórico de ordens de serviço. Identifique padrões de falha. Retorne APENAS um array JSON válido (sem markdown, sem texto extra) contendo objetos com os campos: equipment (string), riskLevel (Baixo, Médio, Alto, Crítico), probability (number 0.0-1.0), recommendation (string), estimatedSaving (number), sector (string). Dados: ${JSON.stringify(orders.slice(-50))}`,
+    contents: `Analise o histórico de ordens de serviço. Identifique padrões de falha. Dados: ${JSON.stringify(orders.slice(-50))}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            equipment: { type: Type.STRING },
+            riskLevel: { type: Type.STRING, enum: ["Baixo", "Médio", "Alto", "Crítico"] },
+            probability: { type: Type.NUMBER },
+            recommendation: { type: Type.STRING },
+            estimatedSaving: { type: Type.NUMBER },
+            sector: { type: Type.STRING },
+          },
+          required: ["equipment", "riskLevel", "probability", "recommendation", "estimatedSaving", "sector"]
+        }
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
     }
   });
   return JSON.parse(cleanJsonString(response.text));
@@ -82,28 +105,46 @@ export const parseExcel5W2H = async (fileName: string, data: any[]): Promise<Par
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Mapeie os dados desta planilha para um array de objetos JSON 5W2H. Campos obrigatórios: what (o que), why (por que), where (onde), when (quando/prazo), who (quem), how (como), howMuch (quanto/custo number). Retorne APENAS o JSON. Planilha: ${JSON.stringify(data.slice(0, 30))}`,
+    contents: `Mapeie os dados desta planilha para 5W2H. Planilha: ${JSON.stringify(data.slice(0, 30))}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            what: { type: Type.STRING },
+            why: { type: Type.STRING },
+            where: { type: Type.STRING },
+            when: { type: Type.STRING },
+            who: { type: Type.STRING },
+            how: { type: Type.STRING },
+            howMuch: { type: Type.NUMBER },
+            sector: { type: Type.STRING, nullable: true },
+          },
+          required: ["what", "why", "where", "when", "who", "how", "howMuch"]
+        }
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
     }
   });
   return JSON.parse(cleanJsonString(response.text));
 };
 
+// Fix: Using gemini-3-pro-image-preview for image-based diagnostics.
+// Removed unsupported responseMimeType and responseSchema for this model.
 export const analyzeIssueImage = async (base64Image: string, mimeType: string) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
+    model: "gemini-3-pro-image-preview",
     contents: { 
       parts: [
         { inlineData: { data: base64Image, mimeType } }, 
-        { text: "Analise esta imagem industrial. Identifique falhas, desgastes ou anomalias. Retorne APENAS um objeto JSON (sem markdown) com os campos: 'equipment' (nome do equipamento) e 'diagnosis' (diagnóstico técnico detalhado)." }
+        { text: "Analise esta imagem industrial. Identifique falhas, desgastes ou anomalias. Retorne APENAS um objeto JSON com: equipment (nome técnico), diagnosis (detalhado)." }
       ] 
     },
     config: { 
-      responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
     }
   });
   return JSON.parse(cleanJsonString(response.text));
@@ -113,10 +154,31 @@ export const getDetailedAIAnalysis = async (orders: ServiceOrder[], unitName: st
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Realize uma auditoria executiva para a unidade ${unitName} baseada nestas ordens de serviço. Retorne APENAS um JSON válido seguindo a interface: { title: string, date: string, summary: string, sections: [{title: string, content: string}], recommendations: string[] }. Dados: ${JSON.stringify(orders.slice(0, 30))}`,
+    contents: `Auditoria executiva para ${unitName}. Dados: ${JSON.stringify(orders.slice(0, 30))}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 4000 }
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          date: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          sections: { 
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                content: { type: Type.STRING },
+              },
+              required: ["title", "content"]
+            }
+          },
+          recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["title", "date", "summary", "sections", "recommendations"]
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
     }
   });
   return JSON.parse(cleanJsonString(response.text)) as DetailedAIReport;
@@ -136,7 +198,7 @@ export const refineTechnicalDescription = async (rawText: string) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Refine para linguagem técnica profissional de engenharia (pt-BR), corrigindo termos e gramática: "${rawText}"`,
+    contents: `Refine para linguagem técnica profissional de engenharia (pt-BR): "${rawText}"`,
   });
   return response.text?.trim() || rawText;
 };
@@ -145,10 +207,23 @@ export const detectMaintenancePatterns = async (orders: ServiceOrder[]) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Identifique padrões de falhas recorrentes. Sugira rotinas preventivas. Retorne APENAS um array JSON com objetos contendo: title, reason, intervalDays (number), sector. Dados: ${JSON.stringify(orders.slice(-50))}`,
+    contents: `Identifique padrões de falhas recorrentes. Dados: ${JSON.stringify(orders.slice(-50))}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            reason: { type: Type.STRING },
+            intervalDays: { type: Type.NUMBER },
+            sector: { type: Type.STRING },
+          },
+          required: ["title", "reason", "intervalDays", "sector"]
+        }
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
     }
   });
   return JSON.parse(cleanJsonString(response.text));
@@ -158,10 +233,20 @@ export const getWhatIfSimulation = async (scenario: string, stats: any) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Simule o cenário industrial: "${scenario}". Retorne um JSON com: projectedSaving (number), pros (string[]), cons (string[]), summary (string). Dados atuais: ${JSON.stringify(stats)}`,
+    contents: `Simule o cenário industrial: "${scenario}". Dados atuais: ${JSON.stringify(stats)}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          projectedSaving: { type: Type.NUMBER },
+          pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+          cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+          summary: { type: Type.STRING },
+        },
+        required: ["projectedSaving", "pros", "cons", "summary"]
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
     }
   });
   return JSON.parse(cleanJsonString(response.text));
@@ -171,10 +256,41 @@ export const convertExcelToAuditTemplate = async (fileName: string, data: any[])
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Converta esta planilha em um template de auditoria digital. Retorne um JSON com: name (string), questions (array de objetos com id, category, text, weight (1-5), options [{label, value}]). Dados: ${JSON.stringify(data.slice(0, 20))}`,
+    contents: `Converta esta planilha em um template de auditoria. Dados: ${JSON.stringify(data.slice(0, 20))}`,
     config: { 
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          questions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                category: { type: Type.STRING },
+                text: { type: Type.STRING },
+                weight: { type: Type.NUMBER },
+                options: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      label: { type: Type.STRING },
+                      value: { type: Type.NUMBER }
+                    },
+                    required: ["label", "value"]
+                  }
+                }
+              },
+              required: ["id", "category", "text", "weight", "options"]
+            }
+          }
+        },
+        required: ["name", "questions"]
+      },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
     }
   });
   return JSON.parse(cleanJsonString(response.text));

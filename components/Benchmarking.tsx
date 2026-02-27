@@ -66,9 +66,9 @@ const Benchmarking: React.FC<BenchmarkingProps> = ({ units, orders, currentUserU
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <GitCompare className="text-indigo-400" />
-            Benchmarking Multiunidade
+            Comparativo entre Unidades
           </h2>
-          <p className="text-white/40 text-sm">Comparativo de performance e custos entre unidades Aviagen</p>
+          <p className="text-white/40 text-sm">Análise de desempenho e custos entre unidades Aviagen</p>
         </div>
         
         <div className="flex items-center gap-2 p-1 bg-white/5 rounded-xl border border-white/10">

@@ -18,15 +18,15 @@ const HeaderNav: React.FC<any> = ({
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
-    { id: 'schedule', label: 'Cronograma', icon: Calendar, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
-    { id: 'history', label: 'Ordens (OS)', icon: Drill, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
+    { id: 'schedule', label: 'Cronograma', icon: Calendar, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.MAINTENANCE_OFFICER, UserRole.UTILITIES_OFFICER] },
+    { id: 'history', label: 'Ordens (OS)', icon: Drill, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.MAINTENANCE_OFFICER, UserRole.UTILITIES_OFFICER] },
     { id: 'tst', label: 'TST Compliance', icon: ShieldCheck, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
-    { id: 'support', label: 'Suporte Live', icon: Headphones, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
+    { id: 'support', label: 'Suporte Live', icon: Headphones, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.MAINTENANCE_OFFICER, UserRole.UTILITIES_OFFICER] },
     { id: 'assets', label: 'Ativos', icon: Server, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
-    { id: 'inventory', label: 'Estoque', icon: Package, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
+    { id: 'inventory', label: 'Estoque', icon: Package, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.MAINTENANCE_OFFICER, UserRole.UTILITIES_OFFICER] },
     { id: 'finance', label: 'Financeiro', icon: DollarSign, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
     { id: 'reports', label: 'Relatórios', icon: FileBarChart, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
-    { id: 'ai', label: 'IA Industrial', icon: Cpu, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.TECHNICIAN] },
+    { id: 'ai', label: 'IA Industrial', icon: Cpu, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN, UserRole.MAINTENANCE_OFFICER, UserRole.UTILITIES_OFFICER] },
     { id: 'admin', label: 'Governança', icon: Settings, roles: [UserRole.GLOBAL_ADMIN, UserRole.ADMIN] },
   ];
 
@@ -200,7 +200,7 @@ const HeaderNav: React.FC<any> = ({
         </div>
         
         <div className="hidden sm:flex flex-col items-end leading-none border-l border-slate-200 pl-6">
-          <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">{userName.split(' ')[0]}</p>
+          <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">{userName?.split(' ')[0] || 'Usuário'}</p>
           <div className="flex items-center gap-1 mt-1">
              <ShieldCheck size={10} className={role === UserRole.GLOBAL_ADMIN ? 'text-emerald-500' : 'text-[#E31B23]'} />
              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
